@@ -47,9 +47,28 @@ uv pip install -r requirements-dev.txt
 pytest
 ```
 
+下载并清洗少量样本数据：
+
+```bash
+uv run python -m quant_factor.data_loader --limit 3
+```
+
+也可以指定股票代码：
+
+```bash
+uv run python -m quant_factor.data_loader --symbols 000001 600519
+```
+
+输出文件：
+
+- `data/raw/universe_csi300.csv`
+- `data/raw/prices/*.csv`
+- `data/processed/daily_prices.csv`
+
+注意：当前股票池使用 AkShare 返回的最新沪深300成分股，适合项目起步和工程闭环验证。严谨回测阶段需要替换为历史成分股或明确讨论幸存者偏差。
+
 后续计划：
 
-- 实现数据下载与清洗 pipeline
 - 实现动量、反转、波动率等基础因子
 - 实现 RankIC 与分组回测
 - 实现含手续费、滑点和调仓逻辑的回测引擎
