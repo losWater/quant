@@ -77,8 +77,21 @@ uv run python -m quant_factor.factors
 
 - `data/processed/factors.csv`
 
+评估因子有效性：
+
+```bash
+uv run python -m quant_factor.evaluation
+```
+
+输出文件：
+
+- `results/reports/ic_series.csv`
+- `results/reports/ic_summary.csv`
+- `results/reports/group_returns.csv`
+- `results/reports/group_nav.csv`
+- `results/figures/group_nav.png`
+
 后续计划：
 
-- 实现 RankIC 与分组回测
 - 实现含手续费、滑点和调仓逻辑的回测引擎
 - 输出净值曲线、回撤曲线和绩效指标

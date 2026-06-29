@@ -30,6 +30,8 @@ htmlcov/
 data/raw/*
 data/processed/*
 results/*
+results/figures/*
+results/reports/*
 
 # Local planning notes
 docs/量化项目分步指南.md
