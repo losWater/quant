@@ -67,9 +67,18 @@ uv run python -m quant_factor.data_loader --symbols 000001 600519
 
 注意：当前股票池使用 AkShare 返回的最新沪深300成分股，适合项目起步和工程闭环验证。严谨回测阶段需要替换为历史成分股或明确讨论幸存者偏差。
 
+计算基础因子：
+
+```bash
+uv run python -m quant_factor.factors
+```
+
+输出文件：
+
+- `data/processed/factors.csv`
+
 后续计划：
 
-- 实现动量、反转、波动率等基础因子
 - 实现 RankIC 与分组回测
 - 实现含手续费、滑点和调仓逻辑的回测引擎
 - 输出净值曲线、回撤曲线和绩效指标
