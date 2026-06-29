@@ -30,14 +30,13 @@
 
 ## Setup
 
-建议使用 Python 3.11 或 3.12：
+建议使用 Python 3.11。当前项目可以用 `uv` 管理本地虚拟环境：
 
 ```bash
-python3 -m venv .venv
+uv python install 3.11
+uv venv --python 3.11
 source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python -m pip install -r requirements-dev.txt
+uv pip install -r requirements-dev.txt
 ```
 
 ## Development

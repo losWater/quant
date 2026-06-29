@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from quant_factor.factors import momentum, reversal, volatility
 
@@ -8,7 +9,7 @@ def test_momentum_uses_only_trailing_prices() -> None:
 
     result = momentum(close, window=1)
 
-    assert result.iloc[2] == 0.1
+    assert result.iloc[2] == pytest.approx(0.1)
 
 
 def test_reversal_is_negative_momentum() -> None:
@@ -16,7 +17,7 @@ def test_reversal_is_negative_momentum() -> None:
 
     result = reversal(close, window=1)
 
-    assert result.iloc[1] == -0.1
+    assert result.iloc[1] == pytest.approx(-0.1)
 
 
 def test_volatility_returns_rolling_std() -> None:
