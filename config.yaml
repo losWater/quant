@@ -1,0 +1,48 @@
+project:
+  name: quant-factor-project
+  random_seed: 42
+
+data:
+  provider: akshare
+  market: cn_a_share
+  universe: csi300
+  start_date: "2018-01-01"
+  end_date: "2023-12-31"
+  adjusted_price: hfq
+  raw_dir: data/raw
+  processed_dir: data/processed
+
+filters:
+  min_listing_days: 252
+  exclude_st: true
+  exclude_suspended: true
+
+factors:
+  momentum_window: 20
+  reversal_window: 5
+  volatility_window: 20
+  moving_average_window: 20
+  winsorize_method: mad
+  winsorize_limit: 3.0
+  standardize: true
+
+evaluation:
+  forward_return_days: 1
+  ic_method: spearman
+  quantile_groups: 5
+
+backtest:
+  rebalance_frequency: monthly
+  portfolio_quantile: 0.2
+  weighting: equal
+  initial_cash: 1000000
+  buy_commission_rate: 0.0003
+  sell_commission_rate: 0.0003
+  stamp_tax_rate: 0.001
+  slippage_rate: 0.001
+  benchmark: "000300"
+
+output:
+  results_dir: results
+  figures_dir: results/figures
+  reports_dir: results/reports

@@ -1,0 +1,44 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# Packaging and tooling
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Project data and generated outputs
+data/raw/*
+data/processed/*
+results/*
+
+# Local planning notes
+docs/量化项目分步指南.md
+
+# Keep directory placeholders
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!results/
+!results/figures/
+!results/figures/.gitkeep
+!results/reports/
+!results/reports/.gitkeep
