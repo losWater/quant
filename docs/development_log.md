@@ -53,6 +53,7 @@ uv run ruff check .
 - 清洗数据输出到 `data/processed/daily_prices.csv`
 - 个别股票下载失败时记录到 `data/processed/download_failures.csv`，其余股票继续处理
 - 全量下载使用请求超时、重试和短暂停顿，降低 AkShare 接口断连影响
+- 东方财富日线接口失败时回退到腾讯日线接口；备用接口字段较少，但保留当前流程需要的价格和成交量
 
 运行命令：
 

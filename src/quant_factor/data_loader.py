@@ -64,6 +64,14 @@ def normalize_symbol(value: object) -> str:
     return str(value).strip().split(".")[0].zfill(6)
 
 
+def to_tencent_symbol(symbol: str) -> str:
+    """Convert a six-digit A-share symbol to Tencent's sh/sz symbol format."""
+    normalized = normalize_symbol(symbol)
+    if normalized.startswith(("5", "6", "9")):
+        return f"sh{normalized}"
+    return f"sz{normalized}"
+
+
 def standardize_universe(data: pd.DataFrame) -> pd.DataFrame:
     """Normalize CSI index constituent data returned by AkShare."""
     # 股票池接口可能来自中证或新浪，先统一列名，再保留项目需要的字段。
@@ -110,6 +118,26 @@ def standardize_price_data(data: pd.DataFrame) -> pd.DataFrame:
         if column in result:
             result[column] = pd.to_numeric(result[column], errors="coerce")
     return result
+
+
+def standardize_tencent_price_data(data: pd.DataFrame, symbol: str) -> pd.DataFrame:
+    """Normalize AkShare Tencent daily price data to project columns."""
+    # 腾讯接口字段较少，amount 更接近成交量含义；成交额字段先留空。
+    result = data.rename(
+        columns={
+            "date": "trade_date",
+            "open": "open",
+            "close": "close",
+            "high": "high",
+            "low": "low",
+            "amount": "volume",
+        }
+    ).copy()
+    result["symbol"] = normalize_symbol(symbol)
+    if "amount" not in result:
+        result["amount"] = pd.NA
+    columns = ["trade_date", "symbol", "open", "close", "high", "low", "volume", "amount"]
+    return standardize_price_data(result.loc[:, columns])
 
 
 def clean_price_data(data: pd.DataFrame, *, exclude_suspended: bool = True) -> pd.DataFrame:
@@ -166,15 +194,30 @@ def fetch_stock_history(
     import akshare as ak
 
     # AkShare 日线接口要求日期是 YYYYMMDD，复权方式由 config.yaml 控制。
-    raw = ak.stock_zh_a_hist(
-        symbol=normalize_symbol(symbol),
-        period="daily",
-        start_date=normalize_date(start_date),
-        end_date=normalize_date(end_date),
-        adjust=adjust,
-        timeout=timeout,
-    )
-    return standardize_price_data(raw)
+    try:
+        raw = ak.stock_zh_a_hist(
+            symbol=normalize_symbol(symbol),
+            period="daily",
+            start_date=normalize_date(start_date),
+            end_date=normalize_date(end_date),
+            adjust=adjust,
+            timeout=timeout,
+        )
+        return standardize_price_data(raw)
+    except Exception as primary_error:
+        # 东方财富接口偶尔会断连，腾讯接口作为备用数据源保证全量流程可继续。
+        try:
+            fallback = ak.stock_zh_a_hist_tx(
+                symbol=to_tencent_symbol(symbol),
+                start_date=normalize_date(start_date),
+                end_date=normalize_date(end_date),
+                adjust=adjust,
+            )
+            return standardize_tencent_price_data(fallback, symbol)
+        except Exception as fallback_error:
+            raise RuntimeError(
+                f"eastmoney failed: {primary_error}; tencent failed: {fallback_error}"
+            ) from fallback_error
 
 
 def _write_csv(data: pd.DataFrame, path: Path) -> None:

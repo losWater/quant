@@ -8,7 +8,9 @@ from quant_factor.data_loader import (
     normalize_date,
     normalize_symbol,
     standardize_price_data,
+    standardize_tencent_price_data,
     standardize_universe,
+    to_tencent_symbol,
 )
 
 
@@ -19,6 +21,11 @@ def test_normalize_date_for_akshare() -> None:
 def test_normalize_symbol_keeps_six_digits() -> None:
     assert normalize_symbol("1") == "000001"
     assert normalize_symbol("600519.SH") == "600519"
+
+
+def test_to_tencent_symbol_adds_market_prefix() -> None:
+    assert to_tencent_symbol("000001") == "sz000001"
+    assert to_tencent_symbol("600519") == "sh600519"
 
 
 def test_standardize_universe_from_csindex_columns() -> None:
@@ -60,6 +67,25 @@ def test_standardize_price_data_from_akshare_columns() -> None:
     assert result.loc[0, "symbol"] == "000001"
     assert result.loc[0, "close"] == 10.5
     assert result.loc[0, "turnover_rate"] == 1.2
+
+
+def test_standardize_tencent_price_data() -> None:
+    raw = pd.DataFrame(
+        {
+            "date": ["2023-01-03"],
+            "open": ["10.0"],
+            "close": ["10.5"],
+            "high": ["10.8"],
+            "low": ["9.9"],
+            "amount": ["1000"],
+        }
+    )
+
+    result = standardize_tencent_price_data(raw, "1")
+
+    assert result.loc[0, "symbol"] == "000001"
+    assert result.loc[0, "volume"] == 1000
+    assert pd.isna(result.loc[0, "amount"])
 
 
 def test_clean_price_data_removes_suspended_and_duplicate_rows() -> None:
