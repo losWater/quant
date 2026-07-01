@@ -32,6 +32,7 @@ evaluation:
   quantile_groups: 5
 
 backtest:
+  factor: momentum
   rebalance_frequency: monthly
   portfolio_quantile: 0.2
   weighting: equal

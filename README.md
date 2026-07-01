@@ -91,7 +91,20 @@ uv run python -m quant_factor.evaluation
 - `results/reports/group_nav.csv`
 - `results/figures/group_nav.png`
 
+运行含成本多头回测：
+
+```bash
+uv run python -m quant_factor.backtest
+```
+
+输出文件：
+
+- `results/reports/backtest_nav.csv`
+- `results/reports/backtest_target_weights.csv`
+- `results/reports/backtest_active_weights.csv`
+
+当前回测默认使用 `config.yaml` 中的 `backtest.factor: momentum`。小样本结果只用于验证流程，不代表策略有效性。
+
 后续计划：
 
-- 实现含手续费、滑点和调仓逻辑的回测引擎
 - 输出净值曲线、回撤曲线和绩效指标
