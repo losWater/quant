@@ -119,9 +119,12 @@ uv run python -m quant_factor.metrics
 输出文件：
 
 - `results/reports/performance_summary.csv`
+- `results/reports/performance_comparison.csv`
+- `results/reports/benchmark_nav.csv`
 - `results/reports/drawdown.csv`
 - `results/figures/backtest_nav.png`
 - `results/figures/backtest_drawdown.png`
+- `results/figures/benchmark_comparison_nav.png`
 
 一键运行完整流程：
 

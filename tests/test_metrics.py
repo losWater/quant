@@ -4,7 +4,9 @@ import pytest
 from quant_factor.metrics import (
     annualized_return,
     annualized_volatility,
+    build_benchmark_nav,
     build_drawdown_table,
+    build_performance_comparison,
     calmar_ratio,
     drawdown_series,
     max_drawdown,
@@ -89,3 +91,45 @@ def test_build_drawdown_table() -> None:
     result = build_drawdown_table(backtest)
 
     assert result.loc[1, "drawdown"] == pytest.approx(-0.1)
+
+
+def test_build_benchmark_nav_aligns_to_strategy_dates() -> None:
+    price_history = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(["2023-01-02", "2023-01-03", "2023-01-04"]),
+            "symbol": ["spy", "SPY", "SPY"],
+            "close": [100.0, 101.0, 103.02],
+        }
+    )
+
+    result = build_benchmark_nav(
+        price_history,
+        pd.to_datetime(["2023-01-03", "2023-01-04"]),
+        benchmark_symbol="SPY",
+    )
+
+    assert result["benchmark"].tolist() == ["SPY", "SPY"]
+    assert result.loc[0, "benchmark_return"] == pytest.approx(0.01)
+    assert result.loc[1, "benchmark_nav"] == pytest.approx(1.0302)
+
+
+def test_build_performance_comparison_adds_strategy_and_benchmark_rows() -> None:
+    backtest = pd.DataFrame(
+        {
+            "net_return": [0.1, -0.1],
+            "nav": [1.1, 0.99],
+            "turnover": [1.0, 0.5],
+            "cost": [0.001, 0.002],
+        }
+    )
+    benchmark_nav = pd.DataFrame(
+        {
+            "benchmark_return": [0.02, 0.03],
+            "benchmark_nav": [1.02, 1.0506],
+        }
+    )
+
+    result = build_performance_comparison(backtest, benchmark_nav, benchmark_symbol="spy")
+
+    assert result["series"].tolist() == ["strategy", "SPY"]
+    assert result.loc[result["series"] == "SPY", "total_return"].iloc[0] == pytest.approx(0.0506)

@@ -209,9 +209,11 @@ uv run ruff check .
 已完成内容：
 
 - 从 `backtest_nav.csv` 计算年化收益、年化波动率、夏普比率、最大回撤、Calmar
+- 按 `config.yaml` 的 `backtest.benchmark` 下载并对齐 SPY 基准
 - 计算总收益、平均换手率、总交易成本
 - 生成回撤序列表
 - 生成策略净值曲线和回撤曲线图
+- 生成策略和基准的绩效对比表与净值对比图
 
 运行命令：
 
@@ -222,14 +224,17 @@ uv run python -m quant_factor.metrics
 输出文件：
 
 - `results/reports/performance_summary.csv`
+- `results/reports/performance_comparison.csv`
+- `results/reports/benchmark_nav.csv`
 - `results/reports/drawdown.csv`
 - `results/figures/backtest_nav.png`
 - `results/figures/backtest_drawdown.png`
+- `results/figures/benchmark_comparison_nav.png`
 
 说明：
 
 - 当前绩效结果已可基于完整配置股票池生成。
-- 严谨分析还需要扩大股票池、加入基准对照，并继续检查交易成本、调仓规则和幸存者偏差。
+- 严谨分析还需要扩大股票池、加入更多基准对照，并继续检查交易成本、调仓规则和幸存者偏差。
 
 ## 阶段 6：一键运行流程
 
@@ -288,13 +293,54 @@ IC 摘要：
 - 平均换手率：0.0033
 - 总交易成本：0.0080
 
+SPY 对比：
+
+- 策略总收益：14.3228；SPY 总收益：0.9554
+- 策略年化收益：0.5774；SPY 年化收益：0.1185
+- 策略年化波动率：1.0757；SPY 年化波动率：0.2038
+- 策略夏普比率：0.9923；SPY 夏普比率：0.6519
+- 策略最大回撤：-0.9229；SPY 最大回撤：-0.3372
+
 说明：
 
 - 这次已经不是 3 只股票 smoke run，而是当前配置下的完整美股股票池运行。
-- 结果看起来波动和回撤都很大，下一步不应该急着优化收益，而应该先加入基准、风险暴露和结果检查。
+- 结果看起来波动和回撤都很大，下一步不应该急着优化收益，而应该继续做基准、风险暴露和结果检查。
+- 加入 SPY 后可以看到策略收益更高，但承担的波动和最大回撤也显著更大。
+
+## 阶段 8：加入 SPY 基准对照
+
+代码位置：
+
+- `src/quant_factor/metrics.py`
+- `tests/test_metrics.py`
+
+已完成内容：
+
+- 使用 `backtest.benchmark: SPY` 作为市场基准
+- 读取或下载 SPY 日线数据
+- 将 SPY 收益和策略回测日期对齐
+- 输出 `benchmark_nav.csv`
+- 输出 `performance_comparison.csv`
+- 输出 `benchmark_comparison_nav.png`
+- 增加日期对齐和绩效对比的单元测试
+
+验证命令：
+
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run python -m quant_factor.metrics
+uv run python -m quant_factor.pipeline
+```
+
+说明：
+
+- SPY 是可投资的市场基准，比单看策略净值更有意义。
+- 当前策略跑赢 SPY 的同时，也承受了远高于 SPY 的波动和回撤。
+- 这说明下一步要继续做持仓归因，检查收益是否主要来自少数股票和集中暴露。
 
 ## 下一步
 
-- 加入 SPY 或等权股票池基准对照
+- 加入 20 只股票等权买入并持有基准
 - 检查回测收益是否存在过度集中、极端权重或时间对齐问题
 - 扩展美股股票池，减少 20 只股票样本过小带来的偶然性
