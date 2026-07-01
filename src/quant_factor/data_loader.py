@@ -60,8 +60,12 @@ def normalize_date(value: str) -> str:
 
 
 def normalize_symbol(value: object) -> str:
-    """Normalize an A-share symbol to six digits."""
-    return str(value).strip().split(".")[0].zfill(6)
+    """Normalize a symbol for the configured market."""
+    raw = str(value).strip().upper()
+    root = raw.split(".")[0]
+    if root.isdigit():
+        return root.zfill(6)
+    return raw
 
 
 def to_tencent_symbol(symbol: str) -> str:
@@ -140,6 +144,28 @@ def standardize_tencent_price_data(data: pd.DataFrame, symbol: str) -> pd.DataFr
     return standardize_price_data(result.loc[:, columns])
 
 
+def standardize_yfinance_price_data(data: pd.DataFrame, symbol: str) -> pd.DataFrame:
+    """Normalize yfinance daily price data to project columns."""
+    # yfinance 返回英文字段，直接映射为项目内部统一格式。
+    if isinstance(data.columns, pd.MultiIndex):
+        data = data.droplevel(-1, axis=1)
+    result = data.reset_index().rename(
+        columns={
+            "Date": "trade_date",
+            "Datetime": "trade_date",
+            "Open": "open",
+            "Close": "close",
+            "High": "high",
+            "Low": "low",
+            "Volume": "volume",
+        }
+    )
+    result["symbol"] = normalize_symbol(symbol)
+    result["amount"] = pd.NA
+    columns = ["trade_date", "symbol", "open", "close", "high", "low", "volume", "amount"]
+    return standardize_price_data(result.loc[:, columns])
+
+
 def clean_price_data(data: pd.DataFrame, *, exclude_suspended: bool = True) -> pd.DataFrame:
     """Clean standardized daily price data.
 
@@ -182,6 +208,19 @@ def fetch_csi300_universe(index_code: str = "000300") -> pd.DataFrame:
     return standardize_universe(data)
 
 
+def build_manual_universe(symbols: Iterable[str]) -> pd.DataFrame:
+    """Build a manual universe DataFrame from configured symbols."""
+    # 美股先使用手动股票池，避免一开始就引入指数历史成分股数据源。
+    normalized_symbols = [normalize_symbol(symbol) for symbol in symbols]
+    return pd.DataFrame(
+        {
+            "symbol": normalized_symbols,
+            "name": normalized_symbols,
+            "exchange": "manual",
+        }
+    )
+
+
 def fetch_stock_history(
     symbol: str,
     *,
@@ -220,6 +259,34 @@ def fetch_stock_history(
             ) from fallback_error
 
 
+def fetch_yfinance_history(
+    symbol: str,
+    *,
+    start_date: str,
+    end_date: str,
+    adjusted_price: str,
+    timeout: float | None = None,
+) -> pd.DataFrame:
+    """Fetch one US stock's daily price history from yfinance."""
+    import yfinance as yf
+
+    # yfinance 的 end 是开区间，所以这里加一天，确保配置里的结束日被覆盖。
+    end_exclusive = (pd.Timestamp(end_date) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    auto_adjust = adjusted_price in {"auto", "adj", "adjusted", True}
+    raw = yf.download(
+        normalize_symbol(symbol),
+        start=pd.Timestamp(start_date).strftime("%Y-%m-%d"),
+        end=end_exclusive,
+        auto_adjust=auto_adjust,
+        progress=False,
+        threads=False,
+        timeout=timeout,
+    )
+    if raw.empty:
+        raise ValueError(f"No yfinance data returned for {symbol}")
+    return standardize_yfinance_price_data(raw, symbol)
+
+
 def _write_csv(data: pd.DataFrame, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     data.to_csv(path, index=False)
@@ -233,14 +300,18 @@ def load_or_fetch_universe(config: dict[str, Any], *, refresh: bool = False) -> 
     """Load the cached universe or fetch it from AkShare."""
     # 股票池写入 raw 目录。默认优先读缓存，避免每次运行都请求网络。
     raw_dir = Path(config["data"]["raw_dir"])
+    provider = config["data"].get("provider", "akshare")
     universe_name = config["data"].get("universe", "csi300")
-    index_code = "000300" if universe_name == "csi300" else universe_name
     cache_path = raw_dir / f"universe_{universe_name}.csv"
 
     if cache_path.exists() and not refresh:
         return standardize_universe(_read_csv(cache_path))
 
-    universe = fetch_csi300_universe(index_code=index_code)
+    if provider == "yfinance":
+        universe = build_manual_universe(config["data"].get("symbols", []))
+    else:
+        index_code = "000300" if universe_name == "csi300" else universe_name
+        universe = fetch_csi300_universe(index_code=index_code)
     _write_csv(universe, cache_path)
     return universe
 
@@ -270,13 +341,22 @@ def load_or_fetch_price_history(
     last_error: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
-            data = fetch_stock_history(
-                symbol,
-                start_date=data_config["start_date"],
-                end_date=data_config["end_date"],
-                adjust=data_config.get("adjusted_price", ""),
-                timeout=timeout,
-            )
+            if data_config.get("provider") == "yfinance":
+                data = fetch_yfinance_history(
+                    symbol,
+                    start_date=data_config["start_date"],
+                    end_date=data_config["end_date"],
+                    adjusted_price=data_config.get("adjusted_price", "auto"),
+                    timeout=timeout,
+                )
+            else:
+                data = fetch_stock_history(
+                    symbol,
+                    start_date=data_config["start_date"],
+                    end_date=data_config["end_date"],
+                    adjust=data_config.get("adjusted_price", ""),
+                    timeout=timeout,
+                )
             _write_csv(data, cache_path)
             if sleep_seconds > 0:
                 time.sleep(sleep_seconds)

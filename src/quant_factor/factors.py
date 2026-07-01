@@ -90,6 +90,8 @@ def winsorize_mad(values: pd.Series, limit: float = 3.0) -> pd.Series:
     """Winsorize one cross-section using median absolute deviation."""
     # 对每天的截面做稳健去极值，避免极端值主导排序或统计结果。
     values = pd.to_numeric(values, errors="coerce")
+    if values.dropna().empty:
+        return values
     median = values.median(skipna=True)
     mad = (values - median).abs().median(skipna=True)
     if pd.isna(mad) or mad == 0:
@@ -104,6 +106,8 @@ def zscore(values: pd.Series) -> pd.Series:
     """Standardize one cross-section to zero mean and unit sample standard deviation."""
     # 标准化后，不同因子的数值尺度更可比。
     values = pd.to_numeric(values, errors="coerce")
+    if values.dropna().empty:
+        return values
     std = values.std(skipna=True, ddof=1)
     if pd.isna(std) or std == 0:
         return values * 0

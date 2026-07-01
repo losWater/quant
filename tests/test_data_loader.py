@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 from quant_factor.data_loader import (
+    build_manual_universe,
     build_price_dataset,
     clean_price_data,
     load_or_fetch_price_history,
@@ -10,6 +11,7 @@ from quant_factor.data_loader import (
     standardize_price_data,
     standardize_tencent_price_data,
     standardize_universe,
+    standardize_yfinance_price_data,
     to_tencent_symbol,
 )
 
@@ -21,6 +23,7 @@ def test_normalize_date_for_akshare() -> None:
 def test_normalize_symbol_keeps_six_digits() -> None:
     assert normalize_symbol("1") == "000001"
     assert normalize_symbol("600519.SH") == "600519"
+    assert normalize_symbol("aapl") == "AAPL"
 
 
 def test_to_tencent_symbol_adds_market_prefix() -> None:
@@ -86,6 +89,32 @@ def test_standardize_tencent_price_data() -> None:
     assert result.loc[0, "symbol"] == "000001"
     assert result.loc[0, "volume"] == 1000
     assert pd.isna(result.loc[0, "amount"])
+
+
+def test_standardize_yfinance_price_data() -> None:
+    raw = pd.DataFrame(
+        {
+            "Date": pd.to_datetime(["2023-01-03"]),
+            "Open": [100.0],
+            "Close": [101.0],
+            "High": [102.0],
+            "Low": [99.0],
+            "Volume": [1000000],
+        }
+    ).set_index("Date")
+
+    result = standardize_yfinance_price_data(raw, "aapl")
+
+    assert result.loc[0, "symbol"] == "AAPL"
+    assert result.loc[0, "close"] == 101.0
+    assert result.loc[0, "volume"] == 1000000
+
+
+def test_build_manual_universe() -> None:
+    result = build_manual_universe(["aapl", "MSFT"])
+
+    assert result["symbol"].tolist() == ["AAPL", "MSFT"]
+    assert result["exchange"].tolist() == ["manual", "manual"]
 
 
 def test_clean_price_data_removes_suspended_and_duplicate_rows() -> None:

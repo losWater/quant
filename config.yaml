@@ -3,12 +3,33 @@ project:
   random_seed: 42
 
 data:
-  provider: akshare
-  market: cn_a_share
-  universe: csi300
+  provider: yfinance
+  market: us_equity
+  universe: manual
+  symbols:
+    - AAPL
+    - MSFT
+    - NVDA
+    - AMZN
+    - GOOGL
+    - META
+    - JPM
+    - XOM
+    - UNH
+    - PG
+    - HD
+    - COST
+    - AVGO
+    - LLY
+    - V
+    - MA
+    - NFLX
+    - CRM
+    - ORCL
+    - KO
   start_date: "2018-01-01"
   end_date: "2023-12-31"
-  adjusted_price: hfq
+  adjusted_price: auto
   raw_dir: data/raw
   processed_dir: data/processed
   request_timeout: 15
@@ -42,9 +63,9 @@ backtest:
   initial_cash: 1000000
   buy_commission_rate: 0.0003
   sell_commission_rate: 0.0003
-  stamp_tax_rate: 0.001
+  stamp_tax_rate: 0.0
   slippage_rate: 0.001
-  benchmark: "000300"
+  benchmark: SPY
 
 output:
   results_dir: results

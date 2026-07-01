@@ -4,9 +4,9 @@
 
 ## Project Scope
 
-- 市场：A 股，初始股票池建议使用沪深300成分股
+- 市场：美股，初始股票池使用 `config.yaml` 中的手动股票列表
 - 频率：日频
-- 数据源：优先使用 akshare，也可切换到 tushare
+- 数据源：默认使用 yfinance；A 股适配代码仍保留 AkShare 支持
 - 方法：因子构造、RankIC 检验、分组回测、含成本策略回测、绩效评估
 - 工程目标：配置集中管理、源码模块化、单元测试、结果可复现
 
@@ -58,7 +58,7 @@ uv run python -m quant_factor.data_loader --limit 3
 也可以指定股票代码：
 
 ```bash
-uv run python -m quant_factor.data_loader --symbols 000001 600519
+uv run python -m quant_factor.data_loader --symbols AAPL MSFT NVDA
 ```
 
 输出文件：
@@ -68,8 +68,8 @@ uv run python -m quant_factor.data_loader --symbols 000001 600519
 - `data/processed/daily_prices.csv`
 - `data/processed/download_failures.csv`，仅当个别股票下载失败时生成
 
-注意：当前股票池使用 AkShare 返回的最新沪深300成分股，适合项目起步和工程闭环验证。严谨回测阶段需要替换为历史成分股或明确讨论幸存者偏差。
-全量下载时会按 `config.yaml` 中的 `request_retries`、`request_sleep_seconds`、`request_timeout` 做重试和限速；东方财富日线接口失败时会回退到腾讯日线接口。
+注意：当前美股股票池是手动列表，适合项目起步和工程闭环验证。严谨回测阶段需要替换为历史指数成分股或明确讨论幸存者偏差。
+全量下载时会按 `config.yaml` 中的 `request_retries`、`request_sleep_seconds`、`request_timeout` 做重试和限速。
 
 计算基础因子：
 
