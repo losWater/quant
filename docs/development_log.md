@@ -44,9 +44,12 @@ uv run ruff check .
 
 - 当前默认使用 yfinance 获取美股日频行情
 - A 股 AkShare 适配代码仍保留，可按配置切回
+- 数据源适配器已拆到 `src/quant_factor/data_sources/`
+- 数据适配层负责输出统一 schema，后续因子、评估、回测只依赖标准 CSV
 - 美股股票池来自 `config.yaml` 中的手动列表
 - 将不同数据源字段统一映射成英文列名
 - 统一股票代码格式
+- 统一价格字段为 `trade_date, symbol, open, close, high, low, volume, amount, market, source`
 - 统一日期和数值类型
 - 过滤成交量为 0 的停牌日
 - 去重并按 `symbol + trade_date` 排序
