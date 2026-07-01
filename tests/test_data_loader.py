@@ -4,6 +4,7 @@ import pytest
 from quant_factor.data_loader import (
     build_price_dataset,
     clean_price_data,
+    load_or_fetch_price_history,
     normalize_date,
     normalize_symbol,
     standardize_price_data,
@@ -124,3 +125,42 @@ def test_build_price_dataset_records_download_failures(tmp_path, monkeypatch) ->
     assert len(result) == 1
     assert failures.loc[0, "symbol"] == 2
     assert failures.loc[0, "error"] == "network error"
+
+
+def test_load_or_fetch_price_history_retries_download(tmp_path, monkeypatch) -> None:
+    config = {
+        "data": {
+            "raw_dir": str(tmp_path / "raw"),
+            "start_date": "2023-01-01",
+            "end_date": "2023-01-02",
+            "adjusted_price": "hfq",
+            "request_retries": 2,
+            "request_sleep_seconds": 0,
+        }
+    }
+    calls = {"count": 0}
+    price_data = pd.DataFrame(
+        {
+            "trade_date": ["2023-01-01"],
+            "symbol": ["000001"],
+            "open": [10.0],
+            "close": [10.1],
+            "high": [10.2],
+            "low": [9.9],
+            "volume": [1000],
+            "amount": [10000],
+        }
+    )
+
+    def fake_fetch(*args, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise RuntimeError("temporary network error")
+        return price_data
+
+    monkeypatch.setattr("quant_factor.data_loader.fetch_stock_history", fake_fetch)
+
+    result = load_or_fetch_price_history("000001", config)
+
+    assert calls["count"] == 2
+    assert result.loc[0, "symbol"] == "000001"

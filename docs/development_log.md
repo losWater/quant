@@ -52,6 +52,7 @@ uv run ruff check .
 - 原始数据缓存到 `data/raw/`
 - 清洗数据输出到 `data/processed/daily_prices.csv`
 - 个别股票下载失败时记录到 `data/processed/download_failures.csv`，其余股票继续处理
+- 全量下载使用请求超时、重试和短暂停顿，降低 AkShare 接口断连影响
 
 运行命令：
 

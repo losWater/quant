@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import time
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -159,6 +160,7 @@ def fetch_stock_history(
     start_date: str,
     end_date: str,
     adjust: str,
+    timeout: float | None = None,
 ) -> pd.DataFrame:
     """Fetch one stock's adjusted daily price history from AkShare."""
     import akshare as ak
@@ -170,6 +172,7 @@ def fetch_stock_history(
         start_date=normalize_date(start_date),
         end_date=normalize_date(end_date),
         adjust=adjust,
+        timeout=timeout,
     )
     return standardize_price_data(raw)
 
@@ -216,14 +219,38 @@ def load_or_fetch_price_history(
     if cache_path.exists() and not refresh:
         return standardize_price_data(_read_csv(cache_path))
 
-    data = fetch_stock_history(
-        symbol,
-        start_date=data_config["start_date"],
-        end_date=data_config["end_date"],
-        adjust=data_config.get("adjusted_price", ""),
-    )
-    _write_csv(data, cache_path)
-    return data
+    retries = int(data_config.get("request_retries", 3))
+    sleep_seconds = float(data_config.get("request_sleep_seconds", 0.5))
+    timeout = data_config.get("request_timeout")
+    timeout = float(timeout) if timeout is not None else None
+
+    last_error: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            data = fetch_stock_history(
+                symbol,
+                start_date=data_config["start_date"],
+                end_date=data_config["end_date"],
+                adjust=data_config.get("adjusted_price", ""),
+                timeout=timeout,
+            )
+            _write_csv(data, cache_path)
+            if sleep_seconds > 0:
+                time.sleep(sleep_seconds)
+            return data
+        except Exception as exc:
+            last_error = exc
+            if attempt < retries:
+                wait_seconds = sleep_seconds * attempt
+                print(
+                    f"[data] retry {symbol} attempt {attempt + 1}/{retries} after {exc}",
+                    flush=True,
+                )
+                if wait_seconds > 0:
+                    time.sleep(wait_seconds)
+
+    assert last_error is not None
+    raise last_error
 
 
 def build_price_dataset(

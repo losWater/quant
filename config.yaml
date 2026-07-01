@@ -11,6 +11,9 @@ data:
   adjusted_price: hfq
   raw_dir: data/raw
   processed_dir: data/processed
+  request_timeout: 15
+  request_retries: 3
+  request_sleep_seconds: 0.5
 
 filters:
   min_listing_days: 252
