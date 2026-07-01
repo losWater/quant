@@ -191,8 +191,6 @@ uv run pytest -q
 uv run ruff check .
 ```
 
-## 下一步
-
 ## 阶段 5：绩效评估
 
 代码位置：
@@ -224,6 +222,29 @@ uv run python -m quant_factor.metrics
 
 - 当前绩效结果仍然基于 3 只股票小样本，只能验证通路。
 - 正式分析需要先下载完整股票池，再重新运行数据、因子、评估、回测和绩效报告。
+
+## 阶段 6：一键运行流程
+
+代码位置：
+
+- `src/quant_factor/pipeline.py`
+- `tests/test_pipeline.py`
+
+已完成内容：
+
+- 将数据、因子、评估、回测、绩效报告串成一个统一入口
+- 支持 `--limit` 做小样本 smoke run
+- 支持 `--symbols` 指定股票
+- 支持 `--steps` 只运行部分步骤
+- 支持 `--refresh` 忽略本地原始数据缓存
+
+运行小样本完整流程：
+
+```bash
+uv run python -m quant_factor.pipeline --limit 3
+```
+
+正式跑完整股票池时去掉 `--limit`。
 
 ## 下一步
 

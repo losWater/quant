@@ -120,6 +120,14 @@ uv run python -m quant_factor.metrics
 - `results/figures/backtest_nav.png`
 - `results/figures/backtest_drawdown.png`
 
+一键运行完整流程：
+
+```bash
+uv run python -m quant_factor.pipeline --limit 3
+```
+
+正式跑完整股票池时去掉 `--limit`。这会耗时更久，并依赖 AkShare 网络接口稳定性。
+
 后续计划：
 
 - 下载完整股票池数据并重新运行全流程
