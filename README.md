@@ -64,7 +64,7 @@ uv run python -m quant_factor.data_loader --symbols AAPL MSFT NVDA
 
 输出文件：
 
-- `data/raw/universe_csi300.csv`
+- `data/raw/universe_manual.csv`
 - `data/raw/prices/*.csv`
 - `data/processed/daily_prices.csv`
 - `data/processed/download_failures.csv`，仅当个别股票下载失败时生成
@@ -129,8 +129,9 @@ uv run python -m quant_factor.metrics
 uv run python -m quant_factor.pipeline --limit 3
 ```
 
-正式跑完整股票池时去掉 `--limit`。这会耗时更久，并依赖 AkShare 网络接口稳定性。
+正式跑完整股票池时去掉 `--limit`。这会耗时更久，并依赖 yfinance 网络接口稳定性。
 
 后续计划：
 
-- 下载完整股票池数据并重新运行全流程
+- 扩展美股股票池和基准对照
+- 加强回测指标解释和结果检查
