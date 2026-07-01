@@ -210,10 +210,12 @@ uv run ruff check .
 
 - 从 `backtest_nav.csv` 计算年化收益、年化波动率、夏普比率、最大回撤、Calmar
 - 按 `config.yaml` 的 `backtest.benchmark` 下载并对齐 SPY 基准
+- 计算 20 只股票等权买入并持有基准
 - 计算总收益、平均换手率、总交易成本
 - 生成回撤序列表
 - 生成策略净值曲线和回撤曲线图
 - 生成策略和基准的绩效对比表与净值对比图
+- 生成持仓天数、平均权重和近似收益贡献检查表
 
 运行命令：
 
@@ -226,6 +228,7 @@ uv run python -m quant_factor.metrics
 - `results/reports/performance_summary.csv`
 - `results/reports/performance_comparison.csv`
 - `results/reports/benchmark_nav.csv`
+- `results/reports/holding_summary.csv`
 - `results/reports/drawdown.csv`
 - `results/figures/backtest_nav.png`
 - `results/figures/backtest_drawdown.png`
@@ -301,11 +304,20 @@ SPY 对比：
 - 策略夏普比率：0.9923；SPY 夏普比率：0.6519
 - 策略最大回撤：-0.9229；SPY 最大回撤：-0.3372
 
+等权股票池对比：
+
+- 等权买入并持有总收益：2.3805
+- 等权买入并持有年化收益：0.2256
+- 等权买入并持有年化波动率：0.2301
+- 等权买入并持有夏普比率：0.9996
+- 等权买入并持有最大回撤：-0.2913
+
 说明：
 
 - 这次已经不是 3 只股票 smoke run，而是当前配置下的完整美股股票池运行。
 - 结果看起来波动和回撤都很大，下一步不应该急着优化收益，而应该继续做基准、风险暴露和结果检查。
 - 加入 SPY 后可以看到策略收益更高，但承担的波动和最大回撤也显著更大。
+- 加入等权股票池后可以看到，当前股票池本身表现也很好；策略相对等权股票池收益更高，但风险明显更大。
 
 ## 阶段 8：加入 SPY 基准对照
 
@@ -339,8 +351,46 @@ uv run python -m quant_factor.pipeline
 - 当前策略跑赢 SPY 的同时，也承受了远高于 SPY 的波动和回撤。
 - 这说明下一步要继续做持仓归因，检查收益是否主要来自少数股票和集中暴露。
 
+## 阶段 9：加入等权股票池基准和持仓检查
+
+代码位置：
+
+- `src/quant_factor/metrics.py`
+- `tests/test_metrics.py`
+
+已完成内容：
+
+- 使用当前 20 只美股构造等权买入并持有基准
+- 将等权基准与策略回测日期对齐
+- 将 SPY、等权股票池和策略一起写入 `performance_comparison.csv`
+- 将多个基准曲线一起写入 `benchmark_nav.csv`
+- 输出 `holding_summary.csv`，检查每只股票持仓天数、权重和近似收益贡献
+- 增加等权基准和持仓贡献的单元测试
+
+本次结果：
+
+- 策略总收益：14.3228；等权股票池总收益：2.3805；SPY 总收益：0.9554
+- 策略最大回撤：-0.9229；等权股票池最大回撤：-0.2913；SPY 最大回撤：-0.3372
+- 近似收益贡献靠前的股票：`NVDA`、`LLY`、`AVGO`、`AAPL`、`COST`
+
+验证命令：
+
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run python -m quant_factor.metrics
+uv run python -m quant_factor.pipeline
+```
+
+说明：
+
+- 策略确实跑赢了 SPY 和当前 20 只股票等权买入并持有。
+- 但等权股票池本身也显著上涨，说明股票池选择本身贡献很大。
+- 策略风险仍然很高，最大回撤远大于两个基准。
+- 持仓贡献表显示收益贡献靠前的股票集中在少数大牛股上，后续需要做更严格的归因和风险控制。
+
 ## 下一步
 
-- 加入 20 只股票等权买入并持有基准
-- 检查回测收益是否存在过度集中、极端权重或时间对齐问题
+- 检查回测收益是否存在时间对齐问题
+- 增加单只股票最大权重、最大回撤控制或波动率控制
 - 扩展美股股票池，减少 20 只股票样本过小带来的偶然性

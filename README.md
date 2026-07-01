@@ -121,6 +121,7 @@ uv run python -m quant_factor.metrics
 - `results/reports/performance_summary.csv`
 - `results/reports/performance_comparison.csv`
 - `results/reports/benchmark_nav.csv`
+- `results/reports/holding_summary.csv`
 - `results/reports/drawdown.csv`
 - `results/figures/backtest_nav.png`
 - `results/figures/backtest_drawdown.png`
@@ -136,5 +137,5 @@ uv run python -m quant_factor.pipeline --limit 3
 
 后续计划：
 
-- 扩展美股股票池和基准对照
-- 加强回测指标解释和结果检查
+- 扩展美股股票池，降低 20 只股票样本过小带来的偶然性
+- 加强持仓归因、风险暴露和结果检查

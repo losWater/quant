@@ -6,6 +6,8 @@ from quant_factor.metrics import (
     annualized_volatility,
     build_benchmark_nav,
     build_drawdown_table,
+    build_equal_weight_universe_nav,
+    build_holding_summary,
     build_performance_comparison,
     calmar_ratio,
     drawdown_series,
@@ -133,3 +135,51 @@ def test_build_performance_comparison_adds_strategy_and_benchmark_rows() -> None
 
     assert result["series"].tolist() == ["strategy", "SPY"]
     assert result.loc[result["series"] == "SPY", "total_return"].iloc[0] == pytest.approx(0.0506)
+
+
+def test_build_equal_weight_universe_nav_uses_buy_and_hold_weights() -> None:
+    prices = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(
+                ["2023-01-02", "2023-01-03", "2023-01-02", "2023-01-03"]
+            ),
+            "symbol": ["AAA", "AAA", "BBB", "BBB"],
+            "close": [100.0, 110.0, 50.0, 45.0],
+        }
+    )
+
+    result = build_equal_weight_universe_nav(
+        prices,
+        pd.to_datetime(["2023-01-02", "2023-01-03"]),
+    )
+
+    assert result["benchmark"].tolist() == ["equal_weight_universe", "equal_weight_universe"]
+    assert result.loc[0, "benchmark_nav"] == pytest.approx(1.0)
+    assert result.loc[1, "benchmark_nav"] == pytest.approx(1.0)
+
+
+def test_build_holding_summary_reports_concentration_and_contribution() -> None:
+    active_weights = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(["2023-01-02", "2023-01-03", "2023-01-03"]),
+            "symbol": ["AAA", "AAA", "BBB"],
+            "weight": [1.0, 0.5, 0.5],
+        }
+    )
+    prices = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(
+                ["2023-01-02", "2023-01-03", "2023-01-02", "2023-01-03"]
+            ),
+            "symbol": ["AAA", "AAA", "BBB", "BBB"],
+            "close": [100.0, 110.0, 50.0, 45.0],
+        }
+    )
+
+    result = build_holding_summary(active_weights, prices)
+
+    assert result.loc[result["symbol"] == "AAA", "holding_days"].iloc[0] == 2
+    assert result.loc[result["symbol"] == "AAA", "gross_return_contribution"].iloc[
+        0
+    ] == pytest.approx(0.05)
+    assert result["absolute_contribution_share"].sum() == pytest.approx(1.0)
