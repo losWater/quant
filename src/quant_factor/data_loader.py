@@ -52,6 +52,7 @@ NUMERIC_PRICE_COLUMNS = [
 ]
 
 
+# 基础格式化：把外部数据源里的日期和股票代码统一成项目内部格式。
 def normalize_date(value: str) -> str:
     """Normalize a config date into the YYYYMMDD format expected by AkShare."""
     return pd.Timestamp(value).strftime("%Y%m%d")
@@ -64,6 +65,7 @@ def normalize_symbol(value: object) -> str:
 
 def standardize_universe(data: pd.DataFrame) -> pd.DataFrame:
     """Normalize CSI index constituent data returned by AkShare."""
+    # 股票池接口可能来自中证或新浪，先统一列名，再保留项目需要的字段。
     renamed = data.rename(columns=UNIVERSE_COLUMNS).copy()
     required = {"symbol", "name"}
     missing = required - set(renamed.columns)
@@ -88,6 +90,7 @@ def standardize_universe(data: pd.DataFrame) -> pd.DataFrame:
 
 def standardize_price_data(data: pd.DataFrame) -> pd.DataFrame:
     """Normalize raw AkShare daily price data to project column names and types."""
+    # 行情原始字段是中文，这里统一成英文列名和稳定的数据类型。
     renamed = data.rename(columns=RAW_PRICE_COLUMNS).copy()
     required = {"trade_date", "symbol", "open", "close", "high", "low", "volume", "amount"}
     missing = required - set(renamed.columns)
@@ -114,6 +117,7 @@ def clean_price_data(data: pd.DataFrame, *, exclude_suspended: bool = True) -> p
     The current pass covers the first production rules: stable types, duplicate
     removal, chronological ordering, and optional suspended-day filtering.
     """
+    # 清洗层只处理通用数据质量问题，不在这里做任何策略判断。
     cleaned = standardize_price_data(data) if "日期" in data.columns else data.copy()
     required = {"trade_date", "symbol", "open", "close", "high", "low", "volume", "amount"}
     missing = required - set(cleaned.columns)
@@ -141,6 +145,7 @@ def fetch_csi300_universe(index_code: str = "000300") -> pd.DataFrame:
     """Fetch the latest CSI 300 constituents from AkShare."""
     import akshare as ak
 
+    # 优先使用中证指数接口，失败时回退到新浪接口，降低单一数据源故障影响。
     try:
         data = ak.index_stock_cons_csindex(symbol=index_code)
     except Exception:
@@ -158,6 +163,7 @@ def fetch_stock_history(
     """Fetch one stock's adjusted daily price history from AkShare."""
     import akshare as ak
 
+    # AkShare 日线接口要求日期是 YYYYMMDD，复权方式由 config.yaml 控制。
     raw = ak.stock_zh_a_hist(
         symbol=normalize_symbol(symbol),
         period="daily",
@@ -179,6 +185,7 @@ def _read_csv(path: Path) -> pd.DataFrame:
 
 def load_or_fetch_universe(config: dict[str, Any], *, refresh: bool = False) -> pd.DataFrame:
     """Load the cached universe or fetch it from AkShare."""
+    # 股票池写入 raw 目录。默认优先读缓存，避免每次运行都请求网络。
     raw_dir = Path(config["data"]["raw_dir"])
     universe_name = config["data"].get("universe", "csi300")
     index_code = "000300" if universe_name == "csi300" else universe_name
@@ -199,6 +206,7 @@ def load_or_fetch_price_history(
     refresh: bool = False,
 ) -> pd.DataFrame:
     """Load one stock's cached price history or fetch it from AkShare."""
+    # 单只股票一个 CSV，后续增量更新或定位脏数据会更容易。
     data_config = config["data"]
     raw_dir = Path(data_config["raw_dir"])
     price_dir = raw_dir / "prices"
@@ -226,6 +234,7 @@ def build_price_dataset(
     refresh: bool = False,
 ) -> pd.DataFrame:
     """Build and persist the cleaned daily price dataset."""
+    # 主流程：股票池 -> 单票行情 -> 合并清洗 -> 输出 processed 数据集。
     universe = load_or_fetch_universe(config, refresh=refresh)
     selected_symbols = [normalize_symbol(symbol) for symbol in (symbols or universe["symbol"])]
     if limit is not None:

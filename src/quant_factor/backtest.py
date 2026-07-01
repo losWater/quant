@@ -12,6 +12,7 @@ import pandas as pd
 from quant_factor.config import load_config
 
 
+# 交易成本按换手率扣除，包括买卖佣金、卖出印花税和滑点。
 def transaction_cost(
     turnover: float,
     buy_commission_rate: float,
@@ -27,6 +28,7 @@ def transaction_cost(
 
 def calculate_daily_returns(prices: pd.DataFrame) -> pd.DataFrame:
     """Calculate close-to-close daily returns for each symbol."""
+    # 当前版本用收盘到收盘收益近似持仓收益，后续可替换为开盘成交模型。
     required = {"trade_date", "symbol", "close"}
     missing = required - set(prices.columns)
     if missing:
@@ -47,6 +49,7 @@ def get_rebalance_dates(
     frequency: str = "monthly",
 ) -> pd.DatetimeIndex:
     """Select rebalance dates from available trading dates."""
+    # 月度调仓使用每月最后一个可交易日，不假设自然月最后一天一定开市。
     dates = pd.Series(pd.to_datetime(trading_dates).dropna().sort_values().unique())
     if dates.empty:
         return pd.DatetimeIndex([])
@@ -66,6 +69,7 @@ def select_top_quantile(
     portfolio_quantile: float,
 ) -> pd.DataFrame:
     """Select top-ranked names and assign equal target weights per rebalance date."""
+    # 这里只做最简单的多头等权选股：因子值越高，排名越靠前。
     if not 0 < portfolio_quantile <= 1:
         raise ValueError("portfolio_quantile must be in (0, 1].")
 
@@ -96,6 +100,7 @@ def select_top_quantile(
 
 def calculate_turnover(current_weights: pd.Series, target_weights: pd.Series) -> float:
     """Calculate one-way turnover between current and target portfolio weights."""
+    # 单边换手取买入额和卖出额的较大值，适合有现金流约束的组合估算。
     aligned = pd.concat([current_weights, target_weights], axis=1).fillna(0)
     delta = aligned.iloc[:, 1] - aligned.iloc[:, 0]
     buys = delta.clip(lower=0).sum()
@@ -116,6 +121,7 @@ def run_long_only_backtest(
     slippage_rate: float,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Run an equal-weight long-only factor strategy with one-day signal delay."""
+    # 主流程：调仓日选股 -> 生成目标权重 -> 延迟成交 -> 计算收益和成本。
     daily_returns = calculate_daily_returns(prices)
     trading_dates = pd.DatetimeIndex(sorted(daily_returns["trade_date"].dropna().unique()))
     symbols = sorted(daily_returns["symbol"].dropna().unique())
@@ -135,6 +141,7 @@ def run_long_only_backtest(
         .reindex(trading_dates)
         .reindex(columns=symbols)
     )
+    # T 日收盘后生成 signal_weights；shift(2) 让收益从 T+2 开始计入。
     signal_weights = target_matrix.ffill().fillna(0)
     active_weights = signal_weights.shift(2).fillna(0)
 
@@ -146,6 +153,7 @@ def run_long_only_backtest(
     )
     gross_return = (active_weights * return_matrix).sum(axis=1)
 
+    # 成本记在 T+1，和 T 日信号错开，避免把交易发生在信号生成之前。
     previous_signal_weights = signal_weights.shift(1).fillna(0)
     changed = (signal_weights != previous_signal_weights).any(axis=1)
     signal_turnover = pd.Series(0.0, index=trading_dates)
@@ -193,6 +201,7 @@ def run_long_only_backtest(
 
 def run_backtest(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """Load processed data, run backtest, and persist reports."""
+    # 主入口：读取已处理价格和因子，按 config.yaml 参数运行并保存报告。
     processed_dir = Path(config["data"]["processed_dir"])
     reports_dir = Path(config["output"]["reports_dir"])
     reports_dir.mkdir(parents=True, exist_ok=True)

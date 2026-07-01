@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 
+# 绩效指标函数保持独立，后续阶段会接入回测结果报告。
 def annualized_return(returns: pd.Series, periods_per_year: int = 252) -> float:
     """Calculate annualized return from periodic returns."""
     returns = returns.dropna()

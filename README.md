@@ -41,6 +41,8 @@ uv pip install -r requirements-dev.txt
 
 ## Development
 
+开发过程记录见 [docs/development_log.md](docs/development_log.md)。
+
 运行测试：
 
 ```bash

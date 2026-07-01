@@ -18,6 +18,7 @@ FACTOR_COLUMNS = [
 ]
 
 
+# 单因子函数只接收价格序列，保持纯函数形态，方便测试和复用。
 def momentum(close: pd.Series, window: int = 20) -> pd.Series:
     """Calculate trailing return over a lookback window."""
     return close.pct_change(window)
@@ -48,6 +49,7 @@ def calculate_symbol_factors(
     moving_average_window: int = 20,
 ) -> pd.DataFrame:
     """Calculate raw factors for one symbol's chronologically sorted price data."""
+    # 每只股票单独按时间滚动计算，避免把不同股票的价格序列接在一起。
     required = {"trade_date", "symbol", "close"}
     missing = required - set(data.columns)
     if missing:
@@ -64,6 +66,7 @@ def calculate_symbol_factors(
 
 def calculate_raw_factors(price_data: pd.DataFrame, factor_config: dict[str, Any]) -> pd.DataFrame:
     """Calculate raw factors for all symbols in a daily price dataset."""
+    # 配置里的窗口参数统一在这里传入，便于后续做参数敏感性测试。
     data = price_data.copy()
     data["trade_date"] = pd.to_datetime(data["trade_date"], errors="coerce")
     data = data.dropna(subset=["trade_date", "symbol", "close"])
@@ -85,6 +88,7 @@ def calculate_raw_factors(price_data: pd.DataFrame, factor_config: dict[str, Any
 
 def winsorize_mad(values: pd.Series, limit: float = 3.0) -> pd.Series:
     """Winsorize one cross-section using median absolute deviation."""
+    # 对每天的截面做稳健去极值，避免极端值主导排序或统计结果。
     values = pd.to_numeric(values, errors="coerce")
     median = values.median(skipna=True)
     mad = (values - median).abs().median(skipna=True)
@@ -98,6 +102,7 @@ def winsorize_mad(values: pd.Series, limit: float = 3.0) -> pd.Series:
 
 def zscore(values: pd.Series) -> pd.Series:
     """Standardize one cross-section to zero mean and unit sample standard deviation."""
+    # 标准化后，不同因子的数值尺度更可比。
     values = pd.to_numeric(values, errors="coerce")
     std = values.std(skipna=True, ddof=1)
     if pd.isna(std) or std == 0:
@@ -114,6 +119,7 @@ def preprocess_factors(
     standardize: bool = True,
 ) -> pd.DataFrame:
     """Apply per-date winsorization and standardization to factor columns."""
+    # 预处理必须按交易日截面做，不能用未来日期的数据参与当前日期标准化。
     factor_columns = factor_columns or FACTOR_COLUMNS
     result = factors.copy()
     result["trade_date"] = pd.to_datetime(result["trade_date"], errors="coerce")
@@ -135,6 +141,7 @@ def preprocess_factors(
 
 def build_factor_dataset(config: dict[str, Any]) -> pd.DataFrame:
     """Build and persist the factor dataset from processed daily prices."""
+    # 主流程：读取清洗行情 -> 计算原始因子 -> 截面预处理 -> 输出因子表。
     processed_dir = Path(config["data"]["processed_dir"])
     price_path = processed_dir / "daily_prices.csv"
     if not price_path.exists():
