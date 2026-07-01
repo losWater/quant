@@ -107,6 +107,19 @@ uv run python -m quant_factor.backtest
 
 当前回测默认使用 `config.yaml` 中的 `backtest.factor: momentum`。小样本结果只用于验证流程，不代表策略有效性。
 
+生成绩效评估报告：
+
+```bash
+uv run python -m quant_factor.metrics
+```
+
+输出文件：
+
+- `results/reports/performance_summary.csv`
+- `results/reports/drawdown.csv`
+- `results/figures/backtest_nav.png`
+- `results/figures/backtest_drawdown.png`
+
 后续计划：
 
-- 输出净值曲线、回撤曲线和绩效指标
+- 下载完整股票池数据并重新运行全流程

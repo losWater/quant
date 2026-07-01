@@ -193,8 +193,40 @@ uv run ruff check .
 
 ## 下一步
 
-下一阶段建议做绩效评估：
+## 阶段 5：绩效评估
+
+代码位置：
+
+- `src/quant_factor/metrics.py`
+- `tests/test_metrics.py`
+
+已完成内容：
 
 - 从 `backtest_nav.csv` 计算年化收益、年化波动率、夏普比率、最大回撤、Calmar
-- 生成策略净值曲线和回撤曲线
-- 后续再下载完整股票池数据，重新运行数据、因子、评估和回测流程
+- 计算总收益、平均换手率、总交易成本
+- 生成回撤序列表
+- 生成策略净值曲线和回撤曲线图
+
+运行命令：
+
+```bash
+uv run python -m quant_factor.metrics
+```
+
+输出文件：
+
+- `results/reports/performance_summary.csv`
+- `results/reports/drawdown.csv`
+- `results/figures/backtest_nav.png`
+- `results/figures/backtest_drawdown.png`
+
+说明：
+
+- 当前绩效结果仍然基于 3 只股票小样本，只能验证通路。
+- 正式分析需要先下载完整股票池，再重新运行数据、因子、评估、回测和绩效报告。
+
+## 下一步
+
+- 下载完整沪深300股票池数据
+- 重新运行完整 pipeline
+- 检查完整样本下的 IC、分组表现和策略绩效
