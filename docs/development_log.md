@@ -51,6 +51,7 @@ uv run ruff check .
 - 去重并按 `symbol + trade_date` 排序
 - 原始数据缓存到 `data/raw/`
 - 清洗数据输出到 `data/processed/daily_prices.csv`
+- 个别股票下载失败时记录到 `data/processed/download_failures.csv`，其余股票继续处理
 
 运行命令：
 

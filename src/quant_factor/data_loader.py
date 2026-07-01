@@ -232,6 +232,7 @@ def build_price_dataset(
     symbols: Iterable[str] | None = None,
     limit: int | None = None,
     refresh: bool = False,
+    continue_on_error: bool = True,
 ) -> pd.DataFrame:
     """Build and persist the cleaned daily price dataset."""
     # 主流程：股票池 -> 单票行情 -> 合并清洗 -> 输出 processed 数据集。
@@ -240,17 +241,35 @@ def build_price_dataset(
     if limit is not None:
         selected_symbols = selected_symbols[:limit]
 
-    frames = [
-        load_or_fetch_price_history(symbol, config, refresh=refresh)
-        for symbol in selected_symbols
-    ]
+    frames = []
+    failures = []
+    total = len(selected_symbols)
+    for index, symbol in enumerate(selected_symbols, start=1):
+        print(f"[data] {index}/{total} loading {symbol}", flush=True)
+        try:
+            frames.append(load_or_fetch_price_history(symbol, config, refresh=refresh))
+        except Exception as exc:
+            failures.append({"symbol": symbol, "error": str(exc)})
+            print(f"[data] failed {symbol}: {exc}", flush=True)
+            if not continue_on_error:
+                raise
+
+    processed_dir = Path(config["data"]["processed_dir"])
+    if failures:
+        _write_csv(pd.DataFrame(failures), processed_dir / "download_failures.csv")
+    elif (processed_dir / "download_failures.csv").exists():
+        (processed_dir / "download_failures.csv").unlink()
+
+    if not frames:
+        raise RuntimeError("No price data was downloaded or loaded.")
+
     combined = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
     cleaned = clean_price_data(
         combined,
         exclude_suspended=config.get("filters", {}).get("exclude_suspended", True),
     )
 
-    processed_path = Path(config["data"]["processed_dir"]) / "daily_prices.csv"
+    processed_path = processed_dir / "daily_prices.csv"
     _write_csv(cleaned, processed_path)
     return cleaned
 

@@ -66,6 +66,7 @@ uv run python -m quant_factor.data_loader --symbols 000001 600519
 - `data/raw/universe_csi300.csv`
 - `data/raw/prices/*.csv`
 - `data/processed/daily_prices.csv`
+- `data/processed/download_failures.csv`，仅当个别股票下载失败时生成
 
 注意：当前股票池使用 AkShare 返回的最新沪深300成分股，适合项目起步和工程闭环验证。严谨回测阶段需要替换为历史成分股或明确讨论幸存者偏差。
 

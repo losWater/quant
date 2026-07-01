@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 from quant_factor.data_loader import (
+    build_price_dataset,
     clean_price_data,
     normalize_date,
     normalize_symbol,
@@ -84,3 +85,42 @@ def test_clean_price_data_removes_suspended_and_duplicate_rows() -> None:
 def test_standardize_price_data_requires_core_columns() -> None:
     with pytest.raises(ValueError, match="missing required columns"):
         standardize_price_data(pd.DataFrame({"日期": ["2023-01-03"]}))
+
+
+def test_build_price_dataset_records_download_failures(tmp_path, monkeypatch) -> None:
+    config = {
+        "data": {
+            "raw_dir": str(tmp_path / "raw"),
+            "processed_dir": str(tmp_path / "processed"),
+        },
+        "filters": {"exclude_suspended": True},
+    }
+    universe = pd.DataFrame({"symbol": ["000001", "000002"], "name": ["A", "B"]})
+    price_data = pd.DataFrame(
+        {
+            "trade_date": ["2023-01-01"],
+            "symbol": ["000001"],
+            "open": [10.0],
+            "close": [10.1],
+            "high": [10.2],
+            "low": [9.9],
+            "volume": [1000],
+            "amount": [10000],
+        }
+    )
+
+    monkeypatch.setattr("quant_factor.data_loader.load_or_fetch_universe", lambda *a, **k: universe)
+
+    def fake_load_price(symbol, *args, **kwargs):
+        if symbol == "000002":
+            raise RuntimeError("network error")
+        return price_data
+
+    monkeypatch.setattr("quant_factor.data_loader.load_or_fetch_price_history", fake_load_price)
+
+    result = build_price_dataset(config)
+
+    failures = pd.read_csv(tmp_path / "processed" / "download_failures.csv")
+    assert len(result) == 1
+    assert failures.loc[0, "symbol"] == 2
+    assert failures.loc[0, "error"] == "network error"
