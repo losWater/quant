@@ -234,3 +234,8 @@ uv run ruff check .
 ## 开发记录
 
 完整开发过程见 [docs/development_log.md](docs/development_log.md)。
+
+辅助文档：
+
+- [项目总结与面试讲稿](docs/project_summary.md)
+- [复现检查清单](docs/reproducibility_checklist.md)
