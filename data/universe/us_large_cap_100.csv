@@ -1,101 +1,101 @@
-symbol,name,exchange
-AAPL,Apple,NASDAQ
-MSFT,Microsoft,NASDAQ
-NVDA,NVIDIA,NASDAQ
-AMZN,Amazon,NASDAQ
-GOOGL,Alphabet Class A,NASDAQ
-META,Meta Platforms,NASDAQ
-BRK-B,Berkshire Hathaway Class B,NYSE
-LLY,Eli Lilly,NYSE
-AVGO,Broadcom,NASDAQ
-JPM,JPMorgan Chase,NYSE
-XOM,Exxon Mobil,NYSE
-UNH,UnitedHealth Group,NYSE
-V,Visa,NYSE
-MA,Mastercard,NYSE
-HD,Home Depot,NYSE
-PG,Procter and Gamble,NYSE
-COST,Costco,NASDAQ
-ORCL,Oracle,NYSE
-NFLX,Netflix,NASDAQ
-CRM,Salesforce,NYSE
-KO,Coca-Cola,NYSE
-PEP,PepsiCo,NASDAQ
-ADBE,Adobe,NASDAQ
-CSCO,Cisco,NASDAQ
-WMT,Walmart,NYSE
-BAC,Bank of America,NYSE
-MRK,Merck,NYSE
-CVX,Chevron,NYSE
-ABBV,AbbVie,NYSE
-MCD,McDonald's,NYSE
-TMO,Thermo Fisher Scientific,NYSE
-ACN,Accenture,NYSE
-AMD,Advanced Micro Devices,NASDAQ
-LIN,Linde,NASDAQ
-DIS,Walt Disney,NYSE
-ABT,Abbott Laboratories,NYSE
-QCOM,Qualcomm,NASDAQ
-TXN,Texas Instruments,NASDAQ
-INTU,Intuit,NASDAQ
-IBM,IBM,NYSE
-GE,GE Aerospace,NYSE
-CAT,Caterpillar,NYSE
-AMGN,Amgen,NASDAQ
-VZ,Verizon,NYSE
-CMCSA,Comcast,NASDAQ
-NEE,NextEra Energy,NYSE
-HON,Honeywell,NASDAQ
-PM,Philip Morris International,NYSE
-LOW,Lowe's,NYSE
-SPGI,S&P Global,NYSE
-RTX,RTX,NYSE
-BKNG,Booking Holdings,NASDAQ
-GS,Goldman Sachs,NYSE
-ISRG,Intuitive Surgical,NASDAQ
-NOW,ServiceNow,NYSE
-BLK,BlackRock,NYSE
-BA,Boeing,NYSE
-SYK,Stryker,NYSE
-DE,Deere,NYSE
-ELV,Elevance Health,NYSE
-MDLZ,Mondelez International,NASDAQ
-ADP,Automatic Data Processing,NASDAQ
-GILD,Gilead Sciences,NASDAQ
-TJX,TJX Companies,NYSE
-COP,ConocoPhillips,NYSE
-C,Citigroup,NYSE
-SBUX,Starbucks,NASDAQ
-UPS,United Parcel Service,NYSE
-PFE,Pfizer,NYSE
-LMT,Lockheed Martin,NYSE
-MS,Morgan Stanley,NYSE
-AMAT,Applied Materials,NASDAQ
-PLD,Prologis,NYSE
-CB,Chubb,NYSE
-PNC,PNC Financial Services,NYSE
-SCHW,Charles Schwab,NYSE
-MO,Altria,NYSE
-DHR,Danaher,NYSE
-ZTS,Zoetis,NYSE
-REGN,Regeneron,NASDAQ
-ADI,Analog Devices,NASDAQ
-MU,Micron Technology,NASDAQ
-LRCX,Lam Research,NASDAQ
-PANW,Palo Alto Networks,NASDAQ
-KLAC,KLA,NASDAQ
-EQIX,Equinix,NASDAQ
-SO,Southern Company,NYSE
-DUK,Duke Energy,NYSE
-USB,U.S. Bancorp,NYSE
-BMY,Bristol Myers Squibb,NYSE
-CVS,CVS Health,NYSE
-TGT,Target,NYSE
-CI,Cigna,NYSE
-FDX,FedEx,NYSE
-EOG,EOG Resources,NYSE
-AXP,American Express,NYSE
-UNP,Union Pacific,NYSE
-NSC,Norfolk Southern,NYSE
-ITW,Illinois Tool Works,NYSE
-SHW,Sherwin-Williams,NYSE
+symbol,name,exchange,sector
+AAPL,Apple,NASDAQ,Information Technology
+MSFT,Microsoft,NASDAQ,Information Technology
+NVDA,NVIDIA,NASDAQ,Information Technology
+AMZN,Amazon,NASDAQ,Consumer Discretionary
+GOOGL,Alphabet Class A,NASDAQ,Communication Services
+META,Meta Platforms,NASDAQ,Communication Services
+BRK-B,Berkshire Hathaway Class B,NYSE,Financials
+LLY,Eli Lilly,NYSE,Health Care
+AVGO,Broadcom,NASDAQ,Information Technology
+JPM,JPMorgan Chase,NYSE,Financials
+XOM,Exxon Mobil,NYSE,Energy
+UNH,UnitedHealth Group,NYSE,Health Care
+V,Visa,NYSE,Financials
+MA,Mastercard,NYSE,Financials
+HD,Home Depot,NYSE,Consumer Discretionary
+PG,Procter and Gamble,NYSE,Consumer Staples
+COST,Costco,NASDAQ,Consumer Staples
+ORCL,Oracle,NYSE,Information Technology
+NFLX,Netflix,NASDAQ,Communication Services
+CRM,Salesforce,NYSE,Information Technology
+KO,Coca-Cola,NYSE,Consumer Staples
+PEP,PepsiCo,NASDAQ,Consumer Staples
+ADBE,Adobe,NASDAQ,Information Technology
+CSCO,Cisco,NASDAQ,Information Technology
+WMT,Walmart,NYSE,Consumer Staples
+BAC,Bank of America,NYSE,Financials
+MRK,Merck,NYSE,Health Care
+CVX,Chevron,NYSE,Energy
+ABBV,AbbVie,NYSE,Health Care
+MCD,McDonald's,NYSE,Consumer Discretionary
+TMO,Thermo Fisher Scientific,NYSE,Health Care
+ACN,Accenture,NYSE,Information Technology
+AMD,Advanced Micro Devices,NASDAQ,Information Technology
+LIN,Linde,NASDAQ,Materials
+DIS,Walt Disney,NYSE,Communication Services
+ABT,Abbott Laboratories,NYSE,Health Care
+QCOM,Qualcomm,NASDAQ,Information Technology
+TXN,Texas Instruments,NASDAQ,Information Technology
+INTU,Intuit,NASDAQ,Information Technology
+IBM,IBM,NYSE,Information Technology
+GE,GE Aerospace,NYSE,Industrials
+CAT,Caterpillar,NYSE,Industrials
+AMGN,Amgen,NASDAQ,Health Care
+VZ,Verizon,NYSE,Communication Services
+CMCSA,Comcast,NASDAQ,Communication Services
+NEE,NextEra Energy,NYSE,Utilities
+HON,Honeywell,NASDAQ,Industrials
+PM,Philip Morris International,NYSE,Consumer Staples
+LOW,Lowe's,NYSE,Consumer Discretionary
+SPGI,S&P Global,NYSE,Financials
+RTX,RTX,NYSE,Industrials
+BKNG,Booking Holdings,NASDAQ,Consumer Discretionary
+GS,Goldman Sachs,NYSE,Financials
+ISRG,Intuitive Surgical,NASDAQ,Health Care
+NOW,ServiceNow,NYSE,Information Technology
+BLK,BlackRock,NYSE,Financials
+BA,Boeing,NYSE,Industrials
+SYK,Stryker,NYSE,Health Care
+DE,Deere,NYSE,Industrials
+ELV,Elevance Health,NYSE,Health Care
+MDLZ,Mondelez International,NASDAQ,Consumer Staples
+ADP,Automatic Data Processing,NASDAQ,Industrials
+GILD,Gilead Sciences,NASDAQ,Health Care
+TJX,TJX Companies,NYSE,Consumer Discretionary
+COP,ConocoPhillips,NYSE,Energy
+C,Citigroup,NYSE,Financials
+SBUX,Starbucks,NASDAQ,Consumer Discretionary
+UPS,United Parcel Service,NYSE,Industrials
+PFE,Pfizer,NYSE,Health Care
+LMT,Lockheed Martin,NYSE,Industrials
+MS,Morgan Stanley,NYSE,Financials
+AMAT,Applied Materials,NASDAQ,Information Technology
+PLD,Prologis,NYSE,Real Estate
+CB,Chubb,NYSE,Financials
+PNC,PNC Financial Services,NYSE,Financials
+SCHW,Charles Schwab,NYSE,Financials
+MO,Altria,NYSE,Consumer Staples
+DHR,Danaher,NYSE,Health Care
+ZTS,Zoetis,NYSE,Health Care
+REGN,Regeneron,NASDAQ,Health Care
+ADI,Analog Devices,NASDAQ,Information Technology
+MU,Micron Technology,NASDAQ,Information Technology
+LRCX,Lam Research,NASDAQ,Information Technology
+PANW,Palo Alto Networks,NASDAQ,Information Technology
+KLAC,KLA,NASDAQ,Information Technology
+EQIX,Equinix,NASDAQ,Real Estate
+SO,Southern Company,NYSE,Utilities
+DUK,Duke Energy,NYSE,Utilities
+USB,U.S. Bancorp,NYSE,Financials
+BMY,Bristol Myers Squibb,NYSE,Health Care
+CVS,CVS Health,NYSE,Health Care
+TGT,Target,NYSE,Consumer Discretionary
+CI,Cigna,NYSE,Health Care
+FDX,FedEx,NYSE,Industrials
+EOG,EOG Resources,NYSE,Energy
+AXP,American Express,NYSE,Financials
+UNP,Union Pacific,NYSE,Industrials
+NSC,Norfolk Southern,NYSE,Industrials
+ITW,Illinois Tool Works,NYSE,Industrials
+SHW,Sherwin-Williams,NYSE,Materials

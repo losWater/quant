@@ -35,6 +35,9 @@ UNIVERSE_COLUMNS = [
     "symbol",
     "name",
     "exchange",
+    # sector 用于阶段 14 风险暴露分析：判断策略收益是否主要来自行业/风格偏斜。
+    # 放进白名单后，股票池 CSV 里的行业标签才能一路透传到暴露分析模块。
+    "sector",
 ]
 
 

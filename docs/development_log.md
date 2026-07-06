@@ -606,8 +606,59 @@ uv run ruff check .
 uv run python -m quant_factor.robustness
 ```
 
+## 阶段 14：风险暴露分析
+
+代码位置：
+
+- `src/quant_factor/exposure.py`
+- `tests/test_exposure.py`
+- `data/universe/us_large_cap_100.csv`（新增 `sector` 行业列）
+
+目的：
+
+在上马机器学习前，先回答一个更根本的问题——策略的收益到底来自哪里。
+如果收益主要来自行业/风格暴露而不是选股 alpha，那再复杂的模型也只是包装同一份 beta。
+这个阶段只拆解已经跑完的 `backtest_active_weights.csv`，不改变任何策略规则。
+
+已完成内容：
+
+- 给 100 只股票池手动打上 GICS 11 行业标签，并把 `sector` 加入 universe schema 白名单
+- 新增 `exposure` pipeline 步骤，位于 `metrics` 之后、`robustness` 之前
+- 行业暴露表：每年/完整样本各行业平均权重，以及相对等权股票池基准的主动偏离 `active_tilt`
+- 持仓集中度表：有效持仓数（1 / 平均每日 HHI）、Top-N 收益贡献占比、每年头号贡献股
+- 行业收益归因表：把每天每只股票的收益贡献按行业汇总
+- 行业暴露随时间变化的堆叠面积图
+
+输出文件：
+
+- `results/reports/holding_industry_exposure.csv`
+- `results/reports/holding_symbol_concentration.csv`
+- `results/reports/sector_performance_attribution.csv`
+- `results/figures/sector_exposure.png`
+
+关键结果（完整样本 2018-2023）：
+
+- 信息技术行业平均权重 27.5%，相对等权基准 21% 超配 +6.5%，是最大的主动偏离；2019/2020 一度超配 +11%
+- 收益归因：IT 贡献约 40% 毛收益，IT + 医药合计约 62%
+- 一致性证据：2022 年（策略失效那年）IT 反而低配 -5.1%，说明动量在行业轮动之后才调仓
+- 组合本身分散（等权 20 只，有效持仓数 = 20），但 Top10 名字约占毛收益贡献 35%，头号贡献股基本都是 IT/成长股
+
+结论：
+
+- 策略跑输等权股票池、样本外失效，很大程度上能用「IT/成长行业暴露」解释，而不是 momentum 选股 alpha。
+- 这为下一步「行业中性化 / 行业权重上限」提供了明确动机，也再次说明现在还不适合直接上 ML。
+
+验证命令：
+
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run python -m quant_factor.exposure
+```
+
 ## 下一步
 
+- 增加行业权重上限或行业中性化，验证去掉 IT 超配后策略还剩多少 alpha（重跑必须继续对比 SPY 和等权股票池）
 - 增加单只股票最大权重、最大回撤控制或波动率控制
 - 用历史成分股或更系统的股票池构建方式，继续降低幸存者偏差
 - 在 100 只股票 baseline 稳定后，再考虑最基础的机器学习模型

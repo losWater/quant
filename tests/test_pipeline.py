@@ -24,6 +24,10 @@ def test_run_pipeline_executes_steps_in_order(monkeypatch) -> None:
         calls.append(("metrics", {}))
         return "metrics"
 
+    def fake_exposure(config):
+        calls.append(("exposure", {}))
+        return "exposure"
+
     def fake_robustness(config):
         calls.append(("robustness", {}))
         return "robustness"
@@ -33,6 +37,7 @@ def test_run_pipeline_executes_steps_in_order(monkeypatch) -> None:
     monkeypatch.setattr("quant_factor.pipeline.evaluate_factors", fake_evaluation)
     monkeypatch.setattr("quant_factor.pipeline.run_backtest", fake_backtest)
     monkeypatch.setattr("quant_factor.pipeline.build_performance_report", fake_metrics)
+    monkeypatch.setattr("quant_factor.pipeline.build_exposure_report", fake_exposure)
     monkeypatch.setattr("quant_factor.pipeline.build_robustness_report", fake_robustness)
 
     outputs = run_pipeline(

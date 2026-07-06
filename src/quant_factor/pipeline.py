@@ -10,11 +10,20 @@ from quant_factor.backtest import run_backtest
 from quant_factor.config import load_config
 from quant_factor.data_loader import build_price_dataset
 from quant_factor.evaluation import evaluate_factors
+from quant_factor.exposure import build_exposure_report
 from quant_factor.factors import build_factor_dataset
 from quant_factor.metrics import build_performance_report
 from quant_factor.robustness import build_robustness_report
 
-PIPELINE_STEPS = ["data", "factors", "evaluation", "backtest", "metrics", "robustness"]
+PIPELINE_STEPS = [
+    "data",
+    "factors",
+    "evaluation",
+    "backtest",
+    "metrics",
+    "exposure",
+    "robustness",
+]
 
 
 def run_pipeline(
@@ -54,6 +63,11 @@ def run_pipeline(
 
     if "metrics" in selected_steps:
         outputs["metrics"] = build_performance_report(config)
+
+    if "exposure" in selected_steps:
+        # 阶段 14 风险暴露分析：依赖 backtest 落盘的持仓，解释收益来自哪些行业和股票。
+        # 放在 metrics 之后、robustness 之前，因为它和 robustness 一样只“解读”策略，不改策略。
+        outputs["exposure"] = build_exposure_report(config)
 
     if "robustness" in selected_steps:
         # robustness 放在最后，因为它依赖前面已经生成的 backtest_nav 和 factors。

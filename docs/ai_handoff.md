@@ -149,7 +149,28 @@ data/universe/us_large_cap_100.csv
 - `results/reports/rolling_validation.csv`
 - `results/reports/rolling_validation_candidates.csv`
 
-### 8. 文档
+### 8. 风险暴露分析（阶段 14，已完成）
+
+已经实现（代码在 `src/quant_factor/exposure.py`）：
+
+- 给 100 只股票池打上 GICS 行业标签（`data/universe/us_large_cap_100.csv` 新增 `sector` 列）
+- 行业暴露表：各行业平均权重 + 相对等权股票池的主动偏离 `active_tilt`
+- 持仓集中度表：有效持仓数、Top-N 收益贡献占比
+- 行业收益归因表：收益按行业拆解
+- 行业暴露随时间变化图
+
+输出：
+
+- `results/reports/holding_industry_exposure.csv`
+- `results/reports/holding_symbol_concentration.csv`
+- `results/reports/sector_performance_attribution.csv`
+- `results/figures/sector_exposure.png`
+
+核心结论：完整样本里 IT 行业超配 +6.5%（最大偏离），贡献约 40% 毛收益；
+2022 年策略失效时 IT 反而低配 -5.1%。说明策略收益很大程度来自 IT/成长行业暴露，
+而不是 momentum 选股 alpha。详见 `docs/current_issues.md` 问题 5。
+
+### 9. 文档
 
 已有文档：
 
@@ -234,42 +255,35 @@ docs/current_issues.md
 
 ## 下一步建议
 
-建议下一轮从“风险暴露分析”开始，而不是直接做机器学习。
+阶段 14 风险暴露分析已经完成，并且明确了核心结论：策略收益很大程度来自 IT/成长行业暴露。
+所以下一轮的自然方向是「验证去掉这个暴露后策略还剩多少 alpha」，而不是直接做机器学习。
 
-### 推荐下一步：阶段 14，风险暴露分析
+### 推荐下一步：阶段 15，行业约束 / 行业中性化
 
 目标：
 
-- 看策略到底买了哪些行业
-- 看收益是否集中在少数股票
-- 看是否偏向科技、成长、大市值
-- 判断策略收益是不是主要来自风格暴露
+- 给组合加行业权重上限（例如单行业不超过等权基准 + X%），或做简单行业中性化
+- 重跑后对比：加了行业约束，策略相对等权股票池的差距是缩小还是扩大
+- 如果去掉 IT 超配后策略明显变差，说明原来的收益主要是行业 beta，这是重要的诚实结论
 
-建议输出：
+实现提示：
 
-- `results/reports/holding_industry_exposure.csv`
-- `results/reports/holding_symbol_concentration.csv`
-- `results/reports/sector_performance_attribution.csv`
-
-如果暂时没有行业数据，可以先做简化版：
-
-- 在 `data/universe/us_large_cap_100.csv` 手动增加 `sector` 字段
-- 用持仓权重按日期聚合行业暴露
-- 统计每年平均行业权重和收益贡献
-
-### 第二优先级：风险控制
-
-可以尝试：
-
-- 单票权重上限
-- 行业权重上限
-- 波动率目标
-- 最大回撤控制
+- 约束逻辑可以加在 `backtest.select_top_quantile` 之后，对目标权重做行业再平衡
+- 复用 `exposure.load_sector_map` 读取行业标签，避免重复维护映射
+- 约束是策略规则改动，改完要重跑 `metrics` + `exposure` + `robustness` 三步
 
 注意：
 
 - 每次新增控制后，都必须保留 SPY 和等权股票池对比
 - 必须继续跑固定样本外和滚动样本外
+
+### 第二优先级：其他风险控制
+
+可以尝试：
+
+- 单票权重上限
+- 波动率目标
+- 最大回撤控制
 
 ### 第三优先级：股票池改进
 

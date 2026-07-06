@@ -65,7 +65,7 @@ uv run python -m quant_factor.pipeline
 完整流程应输出：
 
 ```text
-Pipeline finished: data, factors, evaluation, backtest, metrics, robustness
+Pipeline finished: data, factors, evaluation, backtest, metrics, exposure, robustness
 ```
 
 ## 关键结果核对
@@ -90,6 +90,12 @@ Pipeline finished: data, factors, evaluation, backtest, metrics, robustness
 - 2021 测试年：选择 60 日动量，策略跑赢 SPY 和等权股票池
 - 2022 测试年：选择 20 日动量，策略跑赢 SPY 但跑输等权股票池
 - 2023 测试年：选择 60 日动量，策略跑输 SPY 和等权股票池
+
+风险暴露（阶段 14）结果应接近，检查 `results/reports/holding_industry_exposure.csv`：
+
+- 完整样本信息技术平均权重约 0.275，相对等权基准 0.21 超配约 +0.065
+- `sector_performance_attribution.csv` 中 IT 毛收益贡献占比约 40%
+- `holding_symbol_concentration.csv` 中有效持仓数约 20，Top10 收益贡献占比约 0.35
 
 ## 时间对齐检查
 
