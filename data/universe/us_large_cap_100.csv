@@ -1,0 +1,101 @@
+symbol,name,exchange
+AAPL,Apple,NASDAQ
+MSFT,Microsoft,NASDAQ
+NVDA,NVIDIA,NASDAQ
+AMZN,Amazon,NASDAQ
+GOOGL,Alphabet Class A,NASDAQ
+META,Meta Platforms,NASDAQ
+BRK-B,Berkshire Hathaway Class B,NYSE
+LLY,Eli Lilly,NYSE
+AVGO,Broadcom,NASDAQ
+JPM,JPMorgan Chase,NYSE
+XOM,Exxon Mobil,NYSE
+UNH,UnitedHealth Group,NYSE
+V,Visa,NYSE
+MA,Mastercard,NYSE
+HD,Home Depot,NYSE
+PG,Procter and Gamble,NYSE
+COST,Costco,NASDAQ
+ORCL,Oracle,NYSE
+NFLX,Netflix,NASDAQ
+CRM,Salesforce,NYSE
+KO,Coca-Cola,NYSE
+PEP,PepsiCo,NASDAQ
+ADBE,Adobe,NASDAQ
+CSCO,Cisco,NASDAQ
+WMT,Walmart,NYSE
+BAC,Bank of America,NYSE
+MRK,Merck,NYSE
+CVX,Chevron,NYSE
+ABBV,AbbVie,NYSE
+MCD,McDonald's,NYSE
+TMO,Thermo Fisher Scientific,NYSE
+ACN,Accenture,NYSE
+AMD,Advanced Micro Devices,NASDAQ
+LIN,Linde,NASDAQ
+DIS,Walt Disney,NYSE
+ABT,Abbott Laboratories,NYSE
+QCOM,Qualcomm,NASDAQ
+TXN,Texas Instruments,NASDAQ
+INTU,Intuit,NASDAQ
+IBM,IBM,NYSE
+GE,GE Aerospace,NYSE
+CAT,Caterpillar,NYSE
+AMGN,Amgen,NASDAQ
+VZ,Verizon,NYSE
+CMCSA,Comcast,NASDAQ
+NEE,NextEra Energy,NYSE
+HON,Honeywell,NASDAQ
+PM,Philip Morris International,NYSE
+LOW,Lowe's,NYSE
+SPGI,S&P Global,NYSE
+RTX,RTX,NYSE
+BKNG,Booking Holdings,NASDAQ
+GS,Goldman Sachs,NYSE
+ISRG,Intuitive Surgical,NASDAQ
+NOW,ServiceNow,NYSE
+BLK,BlackRock,NYSE
+BA,Boeing,NYSE
+SYK,Stryker,NYSE
+DE,Deere,NYSE
+ELV,Elevance Health,NYSE
+MDLZ,Mondelez International,NASDAQ
+ADP,Automatic Data Processing,NASDAQ
+GILD,Gilead Sciences,NASDAQ
+TJX,TJX Companies,NYSE
+COP,ConocoPhillips,NYSE
+C,Citigroup,NYSE
+SBUX,Starbucks,NASDAQ
+UPS,United Parcel Service,NYSE
+PFE,Pfizer,NYSE
+LMT,Lockheed Martin,NYSE
+MS,Morgan Stanley,NYSE
+AMAT,Applied Materials,NASDAQ
+PLD,Prologis,NYSE
+CB,Chubb,NYSE
+PNC,PNC Financial Services,NYSE
+SCHW,Charles Schwab,NYSE
+MO,Altria,NYSE
+DHR,Danaher,NYSE
+ZTS,Zoetis,NYSE
+REGN,Regeneron,NASDAQ
+ADI,Analog Devices,NASDAQ
+MU,Micron Technology,NASDAQ
+LRCX,Lam Research,NASDAQ
+PANW,Palo Alto Networks,NASDAQ
+KLAC,KLA,NASDAQ
+EQIX,Equinix,NASDAQ
+SO,Southern Company,NYSE
+DUK,Duke Energy,NYSE
+USB,U.S. Bancorp,NYSE
+BMY,Bristol Myers Squibb,NYSE
+CVS,CVS Health,NYSE
+TGT,Target,NYSE
+CI,Cigna,NYSE
+FDX,FedEx,NYSE
+EOG,EOG Resources,NYSE
+AXP,American Express,NYSE
+UNP,Union Pacific,NYSE
+NSC,Norfolk Southern,NYSE
+ITW,Illinois Tool Works,NYSE
+SHW,Sherwin-Williams,NYSE

@@ -5,6 +5,7 @@ from quant_factor.data_loader import (
     build_price_dataset,
     clean_price_data,
     load_or_fetch_price_history,
+    load_or_fetch_universe,
 )
 
 
@@ -32,6 +33,23 @@ def test_clean_price_data_removes_suspended_and_duplicate_rows() -> None:
 def test_clean_price_data_requires_core_columns() -> None:
     with pytest.raises(ValueError, match="missing required columns"):
         clean_price_data(pd.DataFrame({"trade_date": ["2023-01-03"]}))
+
+
+def test_load_or_fetch_universe_reads_configured_csv(tmp_path) -> None:
+    universe_path = tmp_path / "universe.csv"
+    pd.DataFrame(
+        {
+            "symbol": ["aapl", "msft"],
+            "name": ["Apple", "Microsoft"],
+            "exchange": ["NASDAQ", "NASDAQ"],
+        }
+    ).to_csv(universe_path, index=False)
+    config = {"data": {"universe_file": str(universe_path)}}
+
+    result = load_or_fetch_universe(config)
+
+    assert result["symbol"].tolist() == ["AAPL", "MSFT"]
+    assert result["exchange"].tolist() == ["NASDAQ", "NASDAQ"]
 
 
 def test_build_price_dataset_records_download_failures(tmp_path, monkeypatch) -> None:

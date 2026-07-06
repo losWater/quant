@@ -5,28 +5,8 @@ project:
 data:
   provider: yfinance
   market: us_equity
-  universe: manual
-  symbols:
-    - AAPL
-    - MSFT
-    - NVDA
-    - AMZN
-    - GOOGL
-    - META
-    - JPM
-    - XOM
-    - UNH
-    - PG
-    - HD
-    - COST
-    - AVGO
-    - LLY
-    - V
-    - MA
-    - NFLX
-    - CRM
-    - ORCL
-    - KO
+  universe: us_large_cap_100
+  universe_file: data/universe/us_large_cap_100.csv
   start_date: "2018-01-01"
   end_date: "2023-12-31"
   adjusted_price: auto

@@ -84,11 +84,19 @@ def _standardize_cached_price_data(data: pd.DataFrame, data_config: dict[str, An
 
 def load_or_fetch_universe(config: dict[str, Any], *, refresh: bool = False) -> pd.DataFrame:
     """Load the cached universe or fetch/build it from the configured source."""
-    # 股票池写入 raw 目录。默认优先读缓存，避免每次运行都请求网络。
+    # 股票池是回测假设的一部分，应该像代码一样被版本管理。
+    # 如果配置了 universe_file，就直接读取本地 CSV，避免股票池藏在 raw 缓存里不可见；
+    # 如果没有配置文件，才走旧的“手动 symbols / 外部指数接口”逻辑。
+    data_config = config["data"]
+    universe_file = data_config.get("universe_file")
+    if universe_file:
+        return standardize_universe_frame(_read_csv(Path(universe_file)))
+
+    # 外部接口股票池写入 raw 目录。默认优先读缓存，避免每次运行都请求网络。
     # 量化研究里“能复现”比“每次取最新”更重要；refresh=True 时才主动刷新。
-    raw_dir = Path(config["data"]["raw_dir"])
-    provider = config["data"].get("provider", "akshare")
-    universe_name = config["data"].get("universe", "csi300")
+    raw_dir = Path(data_config["raw_dir"])
+    provider = data_config.get("provider", "akshare")
+    universe_name = data_config.get("universe", "csi300")
     cache_path = raw_dir / f"universe_{universe_name}.csv"
 
     if cache_path.exists() and not refresh:
@@ -97,7 +105,7 @@ def load_or_fetch_universe(config: dict[str, Any], *, refresh: bool = False) -> 
     if provider == "yfinance":
         # 当前美股路线使用手动股票池。以后如果接 S&P 500 历史成分股，
         # 可以新增一个数据源适配器，而不用改后面的因子和回测。
-        universe = build_manual_universe(config["data"].get("symbols", []))
+        universe = build_manual_universe(data_config.get("symbols", []))
     else:
         index_code = "000300" if universe_name == "csi300" else universe_name
         universe = fetch_csi300_universe(index_code=index_code)
