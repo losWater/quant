@@ -108,6 +108,69 @@ def calculate_turnover(current_weights: pd.Series, target_weights: pd.Series) ->
     return float(max(buys, sells))
 
 
+def build_timing_audit(
+    target_weights: pd.DataFrame,
+    active_weights: pd.DataFrame,
+    backtest: pd.DataFrame,
+) -> pd.DataFrame:
+    """Build a human-readable timing audit for each rebalance signal."""
+    required_targets = {"trade_date", "symbol", "target_weight"}
+    missing_targets = required_targets - set(target_weights.columns)
+    if missing_targets:
+        raise ValueError(f"Target weights are missing required columns: {sorted(missing_targets)}")
+
+    required_backtest = {"trade_date", "turnover"}
+    missing_backtest = required_backtest - set(backtest.columns)
+    if missing_backtest:
+        raise ValueError(f"Backtest data is missing required columns: {sorted(missing_backtest)}")
+
+    # 这个表专门用于人工检查时间线：信号、成本、真正持仓收益必须依次向后错开。
+    targets = target_weights.copy()
+    actives = active_weights.copy()
+    bt = backtest.copy()
+    targets["trade_date"] = pd.to_datetime(targets["trade_date"], errors="coerce")
+    actives["trade_date"] = pd.to_datetime(actives["trade_date"], errors="coerce")
+    bt["trade_date"] = pd.to_datetime(bt["trade_date"], errors="coerce")
+    bt = bt.dropna(subset=["trade_date"]).sort_values("trade_date").reset_index(drop=True)
+    trading_dates = pd.DatetimeIndex(bt["trade_date"])
+
+    rows = []
+    for signal_date, signal_data in targets.groupby("trade_date", sort=True):
+        signal_index = trading_dates.searchsorted(signal_date)
+        cost_date = (
+            trading_dates[signal_index + 1]
+            if signal_index + 1 < len(trading_dates)
+            else pd.NaT
+        )
+        first_return_date = (
+            trading_dates[signal_index + 2] if signal_index + 2 < len(trading_dates) else pd.NaT
+        )
+        selected_symbols = sorted(signal_data["symbol"].astype(str).tolist())
+        active_on_return = actives[actives["trade_date"] == first_return_date]
+        active_symbols = sorted(active_on_return["symbol"].astype(str).tolist())
+        cost_row = bt[bt["trade_date"] == cost_date]
+        turnover = float(cost_row["turnover"].iloc[0]) if not cost_row.empty else 0.0
+        has_full_window = pd.notna(cost_date) and pd.notna(first_return_date)
+        rows.append(
+            {
+                "signal_date": signal_date,
+                "cost_date": cost_date,
+                "first_return_date": first_return_date,
+                "timing_ok": (
+                    has_full_window and signal_date < cost_date < first_return_date
+                ),
+                "execution_window_status": "complete" if has_full_window else "incomplete",
+                "active_symbols_match_selected": (
+                    selected_symbols == active_symbols if has_full_window else pd.NA
+                ),
+                "turnover_on_cost_date": turnover,
+                "selected_symbols": " ".join(selected_symbols),
+                "active_symbols_on_first_return_date": " ".join(active_symbols),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def run_long_only_backtest(
     prices: pd.DataFrame,
     factors: pd.DataFrame,
@@ -141,6 +204,10 @@ def run_long_only_backtest(
         .reindex(trading_dates)
         .reindex(columns=symbols)
     )
+    # 在调仓日，没有被选中的股票必须显式设为 0，否则 ffill 会错误保留旧持仓。
+    signal_dates = pd.DatetimeIndex(target_weights["trade_date"].dropna().unique())
+    rebalance_index = target_matrix.index.intersection(signal_dates)
+    target_matrix.loc[rebalance_index] = target_matrix.loc[rebalance_index].fillna(0)
     # T 日收盘后生成 signal_weights；shift(2) 让收益从 T+2 开始计入。
     signal_weights = target_matrix.ffill().fillna(0)
     active_weights = signal_weights.shift(2).fillna(0)
@@ -231,13 +298,16 @@ def run_backtest(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
         slippage_rate=backtest_config.get("slippage_rate", 0.0),
     )
 
+    timing_audit = build_timing_audit(target_weights, active_weights, backtest)
     backtest.to_csv(reports_dir / "backtest_nav.csv", index=False)
     target_weights.to_csv(reports_dir / "backtest_target_weights.csv", index=False)
     active_weights.to_csv(reports_dir / "backtest_active_weights.csv", index=False)
+    timing_audit.to_csv(reports_dir / "backtest_timing_audit.csv", index=False)
     return {
         "backtest": backtest,
         "target_weights": target_weights,
         "active_weights": active_weights,
+        "timing_audit": timing_audit,
     }
 
 

@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 from quant_factor.backtest import (
+    build_timing_audit,
     calculate_daily_returns,
     calculate_turnover,
     get_rebalance_dates,
@@ -103,3 +104,76 @@ def test_run_long_only_backtest_applies_one_day_signal_delay_and_costs() -> None
     assert backtest.loc[0, "net_return"] == pytest.approx(0.0)
     assert backtest.loc[1, "cost"] == pytest.approx(0.001)
     assert backtest.loc[2, "net_return"] == pytest.approx(0.1)
+
+
+def test_run_long_only_backtest_replaces_unselected_old_holdings() -> None:
+    prices = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(
+                ["2023-01-01", "2023-01-02", "2023-01-03", "2023-01-04"] * 2
+            ),
+            "symbol": ["AAA", "AAA", "AAA", "AAA", "BBB", "BBB", "BBB", "BBB"],
+            "close": [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0],
+        }
+    )
+    factors = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(
+                ["2023-01-01", "2023-01-01", "2023-01-02", "2023-01-02"]
+            ),
+            "symbol": ["AAA", "BBB", "AAA", "BBB"],
+            "momentum": [1.0, 0.0, 0.0, 1.0],
+        }
+    )
+
+    _, _, active_weights = run_long_only_backtest(
+        prices,
+        factors,
+        factor="momentum",
+        rebalance_frequency="daily",
+        portfolio_quantile=0.5,
+        buy_commission_rate=0.0,
+        sell_commission_rate=0.0,
+        stamp_tax_rate=0.0,
+        slippage_rate=0.0,
+    )
+
+    active_on_2023_01_04 = active_weights[
+        active_weights["trade_date"] == pd.Timestamp("2023-01-04")
+    ]
+    assert active_on_2023_01_04["symbol"].tolist() == ["BBB"]
+    assert active_on_2023_01_04["weight"].tolist() == [1.0]
+
+
+def test_build_timing_audit_records_signal_cost_and_return_dates() -> None:
+    target_weights = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(["2023-01-02"]),
+            "symbol": ["AAPL"],
+            "target_weight": [1.0],
+        }
+    )
+    active_weights = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(["2023-01-04"]),
+            "symbol": ["AAPL"],
+            "weight": [1.0],
+        }
+    )
+    backtest = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(["2023-01-02", "2023-01-03", "2023-01-04"]),
+            "turnover": [0.0, 1.0, 0.0],
+        }
+    )
+
+    result = build_timing_audit(target_weights, active_weights, backtest)
+
+    assert result.loc[0, "signal_date"] == pd.Timestamp("2023-01-02")
+    assert result.loc[0, "cost_date"] == pd.Timestamp("2023-01-03")
+    assert result.loc[0, "first_return_date"] == pd.Timestamp("2023-01-04")
+    assert result.loc[0, "timing_ok"]
+    assert result.loc[0, "execution_window_status"] == "complete"
+    assert result.loc[0, "active_symbols_match_selected"]
+    assert result.loc[0, "turnover_on_cost_date"] == pytest.approx(1.0)
+    assert result.loc[0, "active_symbols_on_first_return_date"] == "AAPL"

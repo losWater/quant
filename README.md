@@ -107,6 +107,7 @@ uv run python -m quant_factor.backtest
 - `results/reports/backtest_nav.csv`
 - `results/reports/backtest_target_weights.csv`
 - `results/reports/backtest_active_weights.csv`
+- `results/reports/backtest_timing_audit.csv`
 
 当前回测默认使用 `config.yaml` 中的 `backtest.factor: momentum`。小样本结果只用于验证流程，不代表策略有效性。
 
