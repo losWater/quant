@@ -19,6 +19,8 @@ from quant_factor.data_sources.schema import normalize_symbol
 # 绩效指标函数保持独立，便于单元测试，也便于后续复用到不同策略。
 def annualized_return(returns: pd.Series, periods_per_year: int = 252) -> float:
     """Calculate annualized return from periodic returns."""
+    # 年化收益把不同长度的回测区间拉到同一尺度比较。
+    # 注意它不是“真实每年都赚这么多”，只是把总收益折算成年化口径。
     returns = returns.dropna()
     if returns.empty:
         return float("nan")
@@ -29,6 +31,8 @@ def annualized_return(returns: pd.Series, periods_per_year: int = 252) -> float:
 
 def annualized_volatility(returns: pd.Series, periods_per_year: int = 252) -> float:
     """Calculate annualized volatility from periodic returns."""
+    # 波动率衡量收益路径的抖动程度。收益高但波动也很高，未必是好策略。
+    # 后面的 Sharpe 会把收益和波动放在一起看。
     returns = returns.dropna()
     if returns.empty:
         return float("nan")
@@ -37,6 +41,8 @@ def annualized_volatility(returns: pd.Series, periods_per_year: int = 252) -> fl
 
 def drawdown_series(nav: pd.Series) -> pd.Series:
     """Calculate drawdown series from a net asset value curve."""
+    # 回撤回答的是：“从历史高点往下跌了多少？”
+    # 投资者真实感受到的痛苦往往不是收益率低，而是高点后连续亏损。
     nav = nav.dropna()
     if nav.empty:
         return pd.Series(dtype="float64")
@@ -57,6 +63,8 @@ def sharpe_ratio(
     periods_per_year: int = 252,
 ) -> float:
     """Calculate annualized Sharpe ratio."""
+    # Sharpe 是风险调整收益：同样赚 20%，波动更小的策略更好。
+    # 这里默认无风险利率为 0，是为了项目起步简化；后续可以接入真实无风险利率。
     excess = returns.dropna() - risk_free_rate / periods_per_year
     volatility = excess.std(ddof=1)
     if volatility == 0 or np.isnan(volatility):
@@ -66,6 +74,7 @@ def sharpe_ratio(
 
 def calmar_ratio(returns: pd.Series, nav: pd.Series, periods_per_year: int = 252) -> float:
     """Calculate Calmar ratio as annualized return divided by absolute max drawdown."""
+    # Calmar 把收益和最大回撤放在一起看，适合检查“赚的钱值不值得承受这次大跌”。
     ann_return = annualized_return(returns, periods_per_year)
     max_dd = abs(max_drawdown(nav))
     if max_dd == 0 or np.isnan(max_dd):
@@ -80,6 +89,8 @@ def summarize_performance(
     risk_free_rate: float = 0.0,
 ) -> pd.DataFrame:
     """Build a one-row performance summary from a backtest result table."""
+    # 所有绩效报告都通过这个函数汇总，保证策略、SPY、等权基准使用同一套口径。
+    # 这样比较才公平，避免不同报告里指标算法不一致。
     required = {"net_return", "nav", "turnover", "cost"}
     missing = required - set(backtest.columns)
     if missing:
@@ -111,12 +122,15 @@ def build_benchmark_nav(
     benchmark_symbol: str,
 ) -> pd.DataFrame:
     """Build a benchmark NAV curve aligned to strategy trading dates."""
+    # SPY 这类市场基准是“最低要求”：策略赚钱不代表有 alpha，
+    # 只有和可投资基准比较后，才能判断是不是跑赢了市场。
     required = {"trade_date", "symbol", "close"}
     missing = required - set(price_history.columns)
     if missing:
         raise ValueError(f"Benchmark data is missing required columns: {sorted(missing)}")
 
     # 基准收益和策略使用同一批交易日，避免两个曲线因为日期不同而不可比。
+    # 比如某些股票缺数据时，如果各算各的日期，年化收益会被比较口径污染。
     symbol = normalize_symbol(benchmark_symbol)
     dates = pd.DatetimeIndex(pd.to_datetime(trading_dates).dropna().sort_values().unique())
     benchmark = price_history.loc[:, ["trade_date", "symbol", "close"]].copy()
@@ -145,12 +159,16 @@ def build_equal_weight_universe_nav(
     trading_dates: pd.Series | pd.DatetimeIndex,
 ) -> pd.DataFrame:
     """Build a buy-and-hold equal-weight universe NAV curve."""
+    # 等权股票池基准回答一个更尖锐的问题：
+    # “是不是这 20 只股票本身就涨得很好，策略只是搭了股票池的便车？”
+    # 所以它比 SPY 更贴近当前股票池的机会成本。
     required = {"trade_date", "symbol", "close"}
     missing = required - set(prices.columns)
     if missing:
         raise ValueError(f"Price data is missing required columns: {sorted(missing)}")
 
     # 等权买入并持有：第一天每只股票投入相同资金，之后不再每日再平衡。
+    # 这里不是月度再平衡基准，而是一个更简单的“买入这批股票不动”的参照物。
     dates = pd.DatetimeIndex(pd.to_datetime(trading_dates).dropna().sort_values().unique())
     data = prices.loc[:, ["trade_date", "symbol", "close"]].copy()
     data["trade_date"] = pd.to_datetime(data["trade_date"], errors="coerce")
@@ -166,6 +184,8 @@ def build_equal_weight_universe_nav(
     )
     if close_matrix.empty:
         raise ValueError("No valid universe price data found for equal-weight benchmark")
+    # 每只股票都从自己的第一天价格归一化到 1，再平均。
+    # 这样 AAPL 和 NVDA 价格绝对值不同，不会影响等权基准的权重。
     base_prices = close_matrix.apply(lambda column: column.dropna().iloc[0])
     symbol_nav = close_matrix.divide(base_prices, axis=1)
     nav = symbol_nav.mean(axis=1).fillna(1.0)
@@ -182,12 +202,15 @@ def build_equal_weight_universe_nav(
 
 def build_holding_summary(active_weights: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
     """Summarize strategy holdings and approximate return contribution by symbol."""
+    # 持仓归因不是严格的业绩归因模型，但能快速回答：
+    # 策略收益是不是主要来自少数几只大牛股？如果是，结论要更谨慎。
     required_weights = {"trade_date", "symbol", "weight"}
     missing_weights = required_weights - set(active_weights.columns)
     if missing_weights:
         raise ValueError(f"Active weights are missing required columns: {sorted(missing_weights)}")
 
     # 持仓贡献用 weight * close-to-close return 近似，帮助定位收益是否集中在少数股票。
+    # 这里用 gross contribution，不扣成本，因为目的是看股票收益来源，而不是再算一次净值。
     weights = active_weights.loc[:, ["trade_date", "symbol", "weight"]].copy()
     weights["trade_date"] = pd.to_datetime(weights["trade_date"], errors="coerce")
     weights["symbol"] = weights["symbol"].map(normalize_symbol)
@@ -238,6 +261,8 @@ def build_performance_comparison(
     benchmark_symbol: str,
 ) -> pd.DataFrame:
     """Build a strategy-versus-benchmark performance comparison table."""
+    # 对比表把策略、SPY、等权股票池放在同一张表里。
+    # 这是研究报告里最重要的表之一：单看策略净值很容易自我感觉良好。
     strategy = summarize_performance(backtest).assign(series="strategy")
     benchmark_rows = []
     benchmark_data = benchmark_nav.copy()
@@ -260,6 +285,7 @@ def build_performance_comparison(
 
 def build_drawdown_table(backtest: pd.DataFrame) -> pd.DataFrame:
     """Build a date-aligned drawdown report table."""
+    # 回撤序列表用于画图，也方便后续定位最大回撤发生在哪段时间。
     required = {"trade_date", "nav"}
     missing = required - set(backtest.columns)
     if missing:
@@ -327,6 +353,11 @@ def plot_benchmark_comparison(
 
 def build_performance_report(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """Load backtest output, calculate metrics, and persist performance reports."""
+    # 绩效报告阶段不再改变策略，只做“结果解释”：
+    # 1. 策略自身风险收益
+    # 2. 和基准比较
+    # 3. 持仓贡献检查
+    # 这样策略规则和结果解读互不污染。
     reports_dir = Path(config["output"]["reports_dir"])
     figures_dir = Path(config["output"]["figures_dir"])
     backtest_path = reports_dir / "backtest_nav.csv"
@@ -353,6 +384,8 @@ def build_performance_report(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
     ]
     benchmark_symbol = config.get("backtest", {}).get("benchmark")
     if benchmark_symbol:
+        # benchmark 也走同一套数据缓存逻辑。这样 SPY 原始数据会落在 data/raw/prices，
+        # 下次重跑不需要重新请求网络。
         benchmark_prices = load_or_fetch_price_history(benchmark_symbol, config)
         benchmark_frames.insert(
             0,

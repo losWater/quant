@@ -30,6 +30,11 @@ def run_pipeline(
     outputs: dict[str, Any] = {}
 
     # 这里按研究流程顺序执行；每一步都只依赖前一步落盘后的标准文件。
+    # 设计思路是“可分阶段、也可一键跑”：
+    # - 调试下载时可以只跑 data
+    # - 改因子时可以从 factors 开始
+    # - 最终复现时直接跑完整 pipeline
+    # 这样既适合学习，也适合以后放到 CI 或定时任务里。
     if "data" in selected_steps:
         outputs["data"] = build_price_dataset(
             config,
@@ -51,6 +56,8 @@ def run_pipeline(
         outputs["metrics"] = build_performance_report(config)
 
     if "robustness" in selected_steps:
+        # robustness 放在最后，因为它依赖前面已经生成的 backtest_nav 和 factors。
+        # 它不改变策略，只负责检查策略结论是否稳定。
         outputs["robustness"] = build_robustness_report(config)
 
     return outputs

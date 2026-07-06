@@ -47,6 +47,8 @@ def normalize_date(value: str) -> str:
 
 def to_tencent_symbol(symbol: str) -> str:
     """Convert a six-digit A-share symbol to Tencent's sh/sz symbol format."""
+    # A 股不同接口对交易所前缀要求不同。
+    # 东方财富接口常用纯 6 位代码，腾讯接口需要 sh/sz 前缀。
     normalized = normalize_symbol(symbol)
     if normalized.startswith(("5", "6", "9")):
         return f"sh{normalized}"
@@ -63,6 +65,8 @@ def standardize_universe(data: pd.DataFrame) -> pd.DataFrame:
 def standardize_akshare_price_data(data: pd.DataFrame) -> pd.DataFrame:
     """Normalize raw AkShare daily price data to project column names and types."""
     # 行情原始字段是中文，这里统一成英文列名和稳定的数据类型。
+    # 注意：额外字段如换手率可以保留，但核心 schema 仍然是 OHLCV。
+    # 后续如果要做换手率因子，就可以直接使用这些额外字段。
     renamed = data.rename(columns=RAW_PRICE_COLUMNS).copy()
     result = standardize_price_frame(renamed, market="cn_a_share", source="akshare")
     for column in AKSHARE_EXTRA_COLUMNS:
@@ -74,6 +78,7 @@ def standardize_akshare_price_data(data: pd.DataFrame) -> pd.DataFrame:
 def standardize_tencent_price_data(data: pd.DataFrame, symbol: str) -> pd.DataFrame:
     """Normalize AkShare Tencent daily price data to project columns."""
     # 腾讯接口字段较少，amount 更接近成交量含义；成交额字段先留空。
+    # 这类 fallback 数据不追求字段最完整，目标是保证主流程能继续跑通。
     result = data.rename(
         columns={
             "date": "trade_date",
@@ -112,6 +117,7 @@ def fetch_stock_history(
     import akshare as ak
 
     # AkShare 日线接口要求日期是 YYYYMMDD，复权方式由 config.yaml 控制。
+    # 复权方式会直接影响因子：未复权价格在分红拆股时会产生假跳变。
     try:
         raw = ak.stock_zh_a_hist(
             symbol=normalize_symbol(symbol),

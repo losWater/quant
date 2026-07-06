@@ -13,6 +13,8 @@ from quant_factor.config import load_config
 
 
 # 交易成本按换手率扣除，包括买卖佣金、卖出印花税和滑点。
+# 这里把成本抽成独立函数，是因为成本假设是面试/研究里必问的问题；
+# 后续做成本敏感性测试时，也能直接复用这套计算方式。
 def transaction_cost(
     turnover: float,
     buy_commission_rate: float,
@@ -29,6 +31,8 @@ def transaction_cost(
 def calculate_daily_returns(prices: pd.DataFrame) -> pd.DataFrame:
     """Calculate close-to-close daily returns for each symbol."""
     # 当前版本用收盘到收盘收益近似持仓收益，后续可替换为开盘成交模型。
+    # 为什么先这样做：日频数据只有 OHLCV，不足以模拟真实逐笔成交；
+    # 先用 close-to-close 建立严谨时间错位，等主线跑稳后再升级成交模型。
     required = {"trade_date", "symbol", "close"}
     missing = required - set(prices.columns)
     if missing:
@@ -50,6 +54,7 @@ def get_rebalance_dates(
 ) -> pd.DatetimeIndex:
     """Select rebalance dates from available trading dates."""
     # 月度调仓使用每月最后一个可交易日，不假设自然月最后一天一定开市。
+    # 例如自然月最后一天可能是周末或美股假期，所以必须从真实交易日里选。
     dates = pd.Series(pd.to_datetime(trading_dates).dropna().sort_values().unique())
     if dates.empty:
         return pd.DatetimeIndex([])
@@ -70,6 +75,8 @@ def select_top_quantile(
 ) -> pd.DataFrame:
     """Select top-ranked names and assign equal target weights per rebalance date."""
     # 这里只做最简单的多头等权选股：因子值越高，排名越靠前。
+    # 设计原因：第一阶段先验证“因子排序是否有价值”，不同时引入复杂组合优化。
+    # 如果一开始就做优化器，很难判断收益来自因子，还是来自优化器约束。
     if not 0 < portfolio_quantile <= 1:
         raise ValueError("portfolio_quantile must be in (0, 1].")
 
@@ -101,6 +108,8 @@ def select_top_quantile(
 def calculate_turnover(current_weights: pd.Series, target_weights: pd.Series) -> float:
     """Calculate one-way turnover between current and target portfolio weights."""
     # 单边换手取买入额和卖出额的较大值，适合有现金流约束的组合估算。
+    # 举例：从 A 100% 换到 B 100%，买入 100%、卖出 100%，单边换手记 100%，
+    # 而不是 200%。这样和常见组合回测里的 one-way turnover 口径一致。
     aligned = pd.concat([current_weights, target_weights], axis=1).fillna(0)
     delta = aligned.iloc[:, 1] - aligned.iloc[:, 0]
     buys = delta.clip(lower=0).sum()
@@ -114,6 +123,8 @@ def build_timing_audit(
     backtest: pd.DataFrame,
 ) -> pd.DataFrame:
     """Build a human-readable timing audit for each rebalance signal."""
+    # 这个函数不是为了算收益，而是为了“审计回测有没有偷看未来”。
+    # 它把每次调仓拆成信号日、成本日、开始收益日，让人能肉眼检查时间线。
     required_targets = {"trade_date", "symbol", "target_weight"}
     missing_targets = required_targets - set(target_weights.columns)
     if missing_targets:
@@ -125,6 +136,8 @@ def build_timing_audit(
         raise ValueError(f"Backtest data is missing required columns: {sorted(missing_backtest)}")
 
     # 这个表专门用于人工检查时间线：信号、成本、真正持仓收益必须依次向后错开。
+    # 如果 timing_ok 为 False，通常说明样本结束导致 T+1/T+2 不存在，
+    # 或者时间错位逻辑出现 bug，需要优先排查。
     targets = target_weights.copy()
     actives = active_weights.copy()
     bt = backtest.copy()
@@ -136,6 +149,8 @@ def build_timing_audit(
 
     rows = []
     for signal_date, signal_data in targets.groupby("trade_date", sort=True):
+        # signal_date 是 T 日：T 日收盘后才知道因子和选股结果。
+        # 所以后面成本和收益必须往后错，不能当天就开始赚钱。
         signal_index = trading_dates.searchsorted(signal_date)
         cost_date = (
             trading_dates[signal_index + 1]
@@ -161,6 +176,8 @@ def build_timing_audit(
                 ),
                 "execution_window_status": "complete" if has_full_window else "incomplete",
                 "active_symbols_match_selected": (
+                    # 这个字段专门防我们之前遇到的 bug：
+                    # 新一期未选中的旧股票如果没有清零，会继续留在 active_weights 里。
                     selected_symbols == active_symbols if has_full_window else pd.NA
                 ),
                 "turnover_on_cost_date": turnover,
@@ -185,6 +202,8 @@ def run_long_only_backtest(
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Run an equal-weight long-only factor strategy with one-day signal delay."""
     # 主流程：调仓日选股 -> 生成目标权重 -> 延迟成交 -> 计算收益和成本。
+    # 回测里最重要的不是“算出一个收益”，而是保证收益发生在信号之后。
+    # 这里用 shift(2) 做偏保守处理：T 日生成信号，T+1 记成本，T+2 才吃新持仓收益。
     daily_returns = calculate_daily_returns(prices)
     trading_dates = pd.DatetimeIndex(sorted(daily_returns["trade_date"].dropna().unique()))
     symbols = sorted(daily_returns["symbol"].dropna().unique())
@@ -192,6 +211,8 @@ def run_long_only_backtest(
 
     factor_data = factors.copy()
     factor_data["trade_date"] = pd.to_datetime(factor_data["trade_date"], errors="coerce")
+    # 因子文件里每天都有值，但当前策略只在调仓日使用它。
+    # 这回答了“为什么每天算因子却不是每天换仓”：研究和交易频率可以分开。
     factor_data = factor_data[factor_data["trade_date"].isin(rebalance_dates)]
     target_weights = select_top_quantile(
         factor_data,
@@ -205,10 +226,13 @@ def run_long_only_backtest(
         .reindex(columns=symbols)
     )
     # 在调仓日，没有被选中的股票必须显式设为 0，否则 ffill 会错误保留旧持仓。
+    # 这是一个真实修过的坑：如果只给新选中股票写权重，旧股票会被 ffill 延续，
+    # 组合会越持越多，回测结果会被严重污染。
     signal_dates = pd.DatetimeIndex(target_weights["trade_date"].dropna().unique())
     rebalance_index = target_matrix.index.intersection(signal_dates)
     target_matrix.loc[rebalance_index] = target_matrix.loc[rebalance_index].fillna(0)
     # T 日收盘后生成 signal_weights；shift(2) 让收益从 T+2 开始计入。
+    # 这里牺牲了一点“看起来更高的收益”，换来更保守、更容易解释的时间线。
     signal_weights = target_matrix.ffill().fillna(0)
     active_weights = signal_weights.shift(2).fillna(0)
 
@@ -221,6 +245,7 @@ def run_long_only_backtest(
     gross_return = (active_weights * return_matrix).sum(axis=1)
 
     # 成本记在 T+1，和 T 日信号错开，避免把交易发生在信号生成之前。
+    # turnover 用 signal_weights 计算，因为它代表“目标持仓变化了多少”。
     previous_signal_weights = signal_weights.shift(1).fillna(0)
     changed = (signal_weights != previous_signal_weights).any(axis=1)
     signal_turnover = pd.Series(0.0, index=trading_dates)
@@ -269,6 +294,8 @@ def run_long_only_backtest(
 def run_backtest(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """Load processed data, run backtest, and persist reports."""
     # 主入口：读取已处理价格和因子，按 config.yaml 参数运行并保存报告。
+    # 回测不直接重新下载数据、不重新计算因子，是为了让每个阶段职责单一：
+    # data/factors 负责生成输入，backtest 只负责交易规则和收益路径。
     processed_dir = Path(config["data"]["processed_dir"])
     reports_dir = Path(config["output"]["reports_dir"])
     reports_dir.mkdir(parents=True, exist_ok=True)

@@ -10,6 +10,8 @@ from quant_factor.data_sources.schema import normalize_symbol, standardize_price
 def standardize_yfinance_price_data(data: pd.DataFrame, symbol: str) -> pd.DataFrame:
     """Normalize yfinance daily price data to project columns."""
     # yfinance 返回英文字段，直接映射为项目内部统一格式。
+    # 有时 yfinance 会返回 MultiIndex 列，尤其是一次请求多个 ticker 时；
+    # 即便当前是一只一只下载，也保留兼容逻辑，避免以后扩展批量下载时踩坑。
     if isinstance(data.columns, pd.MultiIndex):
         data = data.droplevel(-1, axis=1)
     result = data.reset_index().rename(
@@ -39,6 +41,7 @@ def fetch_yfinance_history(
     import yfinance as yf
 
     # yfinance 的 end 是开区间，所以这里加一天，确保配置里的结束日被覆盖。
+    # 这个细节很容易漏：如果不加一天，配置的 end_date 当天数据不会被下载。
     end_exclusive = (pd.Timestamp(end_date) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
     auto_adjust = adjusted_price in {"auto", "adj", "adjusted", True}
     raw = yf.download(

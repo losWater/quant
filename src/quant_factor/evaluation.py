@@ -16,6 +16,8 @@ from quant_factor.factors import FACTOR_COLUMNS
 # IC 是因子检验的核心指标：每天看因子排序和未来收益排序是否同向。
 def rank_ic(factor: pd.Series, forward_return: pd.Series) -> float:
     """Calculate Spearman rank IC for one cross-section."""
+    # RankIC 看的是“排序是否有用”，而不是数值大小是否线性相关。
+    # 选股策略最终也是按因子排序买前几名，所以 Spearman 秩相关更贴近策略使用方式。
     aligned = pd.concat([factor, forward_return], axis=1).dropna()
     if len(aligned) < 2:
         return float("nan")
@@ -33,6 +35,8 @@ def calculate_forward_returns(
     joined to factors observed at T without using future data in factor inputs.
     """
     # T 日这一行保存的是 T 到 T+forward_days 的收益，用来和 T 日因子合并。
+    # 这看起来像“把未来收益放回 T 日”，但它只用于评估标签，
+    # 因子本身仍然只由 T 日及以前的数据算出，所以不会污染因子输入。
     required = {"trade_date", "symbol", "close"}
     missing = required - set(prices.columns)
     if missing:
@@ -55,6 +59,8 @@ def merge_factors_and_returns(
 ) -> pd.DataFrame:
     """Join factor values at T with forward returns after T."""
     # 只按同一只股票、同一个 T 日合并；未来收益已经提前 shift 到 T 日。
+    # 这个合并表的含义是：“我在 T 日知道这个因子值，后来 T+1 收益是多少？”
+    # 它是监督学习/因子评估的标准形态：features at T, label after T。
     factors_data = factors.copy()
     returns_data = forward_returns.copy()
     factors_data["trade_date"] = pd.to_datetime(factors_data["trade_date"], errors="coerce")
@@ -69,6 +75,8 @@ def calculate_ic_series(
 ) -> pd.DataFrame:
     """Calculate daily RankIC for each factor."""
     # 每个交易日单独算一次 RankIC，得到一条随时间变化的 IC 序列。
+    # 不直接把所有日期混在一起，是因为股票截面每天的市场环境不同；
+    # 我们更关心这个因子在“每天选股”这件事上是否稳定有效。
     factor_columns = factor_columns or [
         column for column in FACTOR_COLUMNS if column in evaluation_data.columns
     ]
@@ -83,7 +91,8 @@ def calculate_ic_series(
 
 def summarize_ic(ic_series: pd.DataFrame) -> pd.DataFrame:
     """Summarize IC mean, stability, and hit rate for each factor."""
-    # IC_IR 衡量因子方向是否稳定；正值比例用于观察因子胜率。
+    # IC 均值回答“平均有没有预测方向”，IC_IR 回答“这个方向稳不稳定”。
+    # 一个因子偶尔很准但大多数时候乱跳，IC_IR 会比较差，说明不适合直接信任。
     rows = []
     for factor in [column for column in ic_series.columns if column != "trade_date"]:
         values = pd.to_numeric(ic_series[factor], errors="coerce").dropna()
@@ -111,6 +120,7 @@ def assign_quantile_groups(
 
     def assign_one_date(values: pd.Series) -> pd.Series:
         # 小样本时可用组数会少于配置组数，避免 qcut 因样本不足失败。
+        # 当前只有 20 只股票，甚至某些日期有效因子更少，所以这里不能死板要求 5 组。
         valid = values.dropna()
         if valid.empty:
             return pd.Series(pd.NA, index=values.index, dtype="Int64")
@@ -135,6 +145,8 @@ def calculate_group_returns(
 ) -> pd.DataFrame:
     """Calculate equal-weight forward returns for factor quantile groups."""
     # 分组回测用来观察因子是否有单调性，不在这里计入交易成本。
+    # 这是“研究工具”，不是可交易策略：如果高因子组整体高于低因子组，
+    # 说明这个因子至少在排序上有一些信息含量。
     data = evaluation_data.loc[:, ["trade_date", "symbol", factor, "forward_return"]].copy()
     data["group"] = assign_quantile_groups(data, factor=factor, groups=groups)
     data = data.dropna(subset=["group", "forward_return"])
@@ -153,6 +165,7 @@ def calculate_group_returns(
 def calculate_group_nav(group_returns: pd.DataFrame) -> pd.DataFrame:
     """Convert group forward returns into cumulative net value curves."""
     # 每组把未来收益复利累乘，得到直观的分组净值曲线。
+    # 图形比单个 IC 数字更容易看出问题：比如只有某一段时间有效，曲线会很明显。
     if group_returns.empty:
         return pd.DataFrame(columns=["trade_date", "factor", "group", "nav"])
     data = group_returns.sort_values(["factor", "group", "trade_date"]).copy()
@@ -165,6 +178,9 @@ def calculate_group_nav(group_returns: pd.DataFrame) -> pd.DataFrame:
 def evaluate_factors(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """Run factor IC and quantile group evaluation, then persist reports."""
     # 主流程：价格算未来收益 -> 合并因子 -> IC 检验 -> 分组收益和图表。
+    # 这里的目的不是直接赚钱，而是在策略回测之前先问：
+    # “这些因子本身有没有统计上的排序能力？”
+    # 如果跳过这一步直接回测，很容易把偶然收益误当作因子有效。
     processed_dir = Path(config["data"]["processed_dir"])
     reports_dir = Path(config["output"]["reports_dir"])
     figures_dir = Path(config["output"]["figures_dir"])

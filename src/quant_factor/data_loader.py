@@ -28,7 +28,9 @@ def clean_price_data(data: pd.DataFrame, *, exclude_suspended: bool = True) -> p
     The current pass covers the first production rules: stable types, duplicate
     removal, chronological ordering, and optional suspended-day filtering.
     """
-    # 清洗层只处理通用数据质量问题，不在这里做任何策略判断。
+    # 清洗层只处理“数据质量”问题，不做任何“策略判断”。
+    # 这点很重要：比如成交量为 0 可以视为不可交易/停牌数据，应该清洗；
+    # 但“涨太多要不要剔除”属于策略假设，不能偷偷混在数据清洗里。
     cleaned = data.copy()
     required = {"trade_date", "symbol", "open", "close", "high", "low", "volume", "amount"}
     missing = required - set(cleaned.columns)
@@ -39,6 +41,8 @@ def clean_price_data(data: pd.DataFrame, *, exclude_suspended: bool = True) -> p
     cleaned["symbol"] = cleaned["symbol"].map(normalize_symbol)
     for column in NUMERIC_PRICE_COLUMNS:
         if column in cleaned:
+            # 外部接口经常把数字以字符串形式返回；统一转数值后，
+            # 后面的 rolling、pct_change、回测收益计算才不会出现隐式类型问题。
             cleaned[column] = pd.to_numeric(cleaned[column], errors="coerce")
 
     cleaned = cleaned.dropna(subset=["trade_date", "symbol", "open", "close", "high", "low"])
@@ -63,6 +67,8 @@ def _read_csv(path: Path) -> pd.DataFrame:
 
 def _standardize_cached_price_data(data: pd.DataFrame, data_config: dict[str, Any]) -> pd.DataFrame:
     """Normalize cached CSV data back to the shared price schema."""
+    # 缓存文件可能来自旧版本代码，旧缓存不一定有 market/source。
+    # 这里做兼容，是为了让工程能平滑迭代，不因为增加 schema 字段就要求手工删缓存。
     market = (
         data["market"].iloc[0]
         if "market" in data and not data.empty
@@ -79,6 +85,7 @@ def _standardize_cached_price_data(data: pd.DataFrame, data_config: dict[str, An
 def load_or_fetch_universe(config: dict[str, Any], *, refresh: bool = False) -> pd.DataFrame:
     """Load the cached universe or fetch/build it from the configured source."""
     # 股票池写入 raw 目录。默认优先读缓存，避免每次运行都请求网络。
+    # 量化研究里“能复现”比“每次取最新”更重要；refresh=True 时才主动刷新。
     raw_dir = Path(config["data"]["raw_dir"])
     provider = config["data"].get("provider", "akshare")
     universe_name = config["data"].get("universe", "csi300")
@@ -88,6 +95,8 @@ def load_or_fetch_universe(config: dict[str, Any], *, refresh: bool = False) -> 
         return standardize_universe_frame(_read_csv(cache_path))
 
     if provider == "yfinance":
+        # 当前美股路线使用手动股票池。以后如果接 S&P 500 历史成分股，
+        # 可以新增一个数据源适配器，而不用改后面的因子和回测。
         universe = build_manual_universe(config["data"].get("symbols", []))
     else:
         index_code = "000300" if universe_name == "csi300" else universe_name
@@ -102,6 +111,9 @@ def _fetch_price_history(
     timeout: float | None,
 ) -> pd.DataFrame:
     """Fetch one symbol from the configured provider."""
+    # 这个函数是数据源分发点。调用方只说“我要某只股票的历史行情”，
+    # 至于走 yfinance 还是 AkShare，由 config 控制。
+    # 这样后续支持港股/澳股时，新增分支即可，不必重写主流程。
     provider = data_config.get("provider")
     if provider == "yfinance":
         return fetch_yfinance_history(
@@ -128,6 +140,7 @@ def load_or_fetch_price_history(
 ) -> pd.DataFrame:
     """Load one stock's cached price history or fetch it from the configured provider."""
     # 单只股票一个 CSV，后续增量更新或定位脏数据会更容易。
+    # 如果某一只股票下载坏了，只需要看它自己的 raw/prices/{symbol}.csv。
     data_config = config["data"]
     raw_dir = Path(data_config["raw_dir"])
     price_dir = raw_dir / "prices"
@@ -135,6 +148,8 @@ def load_or_fetch_price_history(
     cache_path = price_dir / f"{symbol}.csv"
 
     if cache_path.exists() and not refresh:
+        # 默认读缓存，能减少外部接口不稳定带来的噪音。
+        # 这也让测试和复盘更稳定：同一份 raw 数据可以反复生成 processed 数据。
         return _standardize_cached_price_data(_read_csv(cache_path), data_config)
 
     retries = int(data_config.get("request_retries", 3))
@@ -153,6 +168,8 @@ def load_or_fetch_price_history(
         except Exception as exc:
             last_error = exc
             if attempt < retries:
+                # 网络接口失败是常态，不应该因为一次超时就中断整条研究流程。
+                # 这里做逐次退避等待，给数据源一点恢复时间。
                 wait_seconds = sleep_seconds * attempt
                 print(
                     f"[data] retry {symbol} attempt {attempt + 1}/{retries} after {exc}",
@@ -175,6 +192,8 @@ def build_price_dataset(
 ) -> pd.DataFrame:
     """Build and persist the cleaned daily price dataset."""
     # 主流程：股票池 -> 单票行情 -> 合并清洗 -> 输出 processed 数据集。
+    # 这里故意把“单票失败”记录下来但默认不中断，因为真实数据源经常有个别票断连。
+    # 研究阶段先保留可用样本继续往后跑，再在 download_failures.csv 里审计失败股票。
     universe = load_or_fetch_universe(config, refresh=refresh)
     selected_symbols = [normalize_symbol(symbol) for symbol in (symbols or universe["symbol"])]
     if limit is not None:

@@ -17,6 +17,8 @@ from quant_factor.metrics import summarize_performance
 
 def _reset_period_nav(backtest: pd.DataFrame) -> pd.DataFrame:
     """Reset NAV to 1.0 for a period-specific performance calculation."""
+    # 分年度/样本内外统计时，不能直接拿整条 nav 的中间值相减。
+    # 每个子区间都应该从 1.0 重新开始，才能得到这个阶段自己的收益和回撤。
     required = {"trade_date", "net_return", "turnover", "cost"}
     missing = required - set(backtest.columns)
     if missing:
@@ -40,6 +42,8 @@ def _summarize_period(backtest: pd.DataFrame, label_column: str, label: str) -> 
 
 def build_yearly_performance(backtest: pd.DataFrame) -> pd.DataFrame:
     """Build year-by-year strategy performance."""
+    # 分年度表现用于识别“是不是只靠某一年赚钱”。
+    # 如果只有 2020 一年特别好，其他年份都不行，就要警惕样本期偶然性。
     data = backtest.copy()
     data["trade_date"] = pd.to_datetime(data["trade_date"], errors="coerce")
     grouped = data.dropna(subset=["trade_date"]).groupby(data["trade_date"].dt.year)
@@ -57,6 +61,9 @@ def build_sample_split_performance(
     test_start_date: str,
 ) -> pd.DataFrame:
     """Build in-sample and out-of-sample performance from fixed calendar dates."""
+    # 样本内/样本外是过拟合检查的核心。
+    # 真实研究里应该先在样本内探索，再在样本外只验证，不继续调参数。
+    # 当前项目还没做自动调参，但先建立这个报告框架，方便后续诚实讨论。
     data = backtest.copy()
     data["trade_date"] = pd.to_datetime(data["trade_date"], errors="coerce")
     train_end = pd.Timestamp(train_end_date)
@@ -82,6 +89,8 @@ def _run_configured_backtest(
     backtest_config: dict[str, Any],
 ) -> pd.DataFrame:
     """Run the standard long-only backtest with a supplied config."""
+    # 稳健性测试会反复跑同一套策略，只改一个假设：
+    # 成本倍数、动量窗口等。抽成函数可以减少重复，也避免不同测试口径不一致。
     backtest, _, _ = run_long_only_backtest(
         prices,
         factors,
@@ -104,6 +113,8 @@ def build_cost_sensitivity(
     cost_multipliers: list[float],
 ) -> pd.DataFrame:
     """Run the strategy under different transaction-cost assumptions."""
+    # 成本敏感性回答：“这个策略是不是只在低成本假设下才好看？”
+    # 如果成本稍微翻倍就失效，真实可交易性就很弱。
     rows = []
     base_backtest_config = config.get("backtest", {})
     for multiplier in cost_multipliers:
@@ -114,6 +125,7 @@ def build_cost_sensitivity(
             "stamp_tax_rate",
             "slippage_rate",
         ]:
+            # 只放大交易成本，不改选股逻辑。这样能单独观察成本假设对结果的影响。
             backtest_config[key] = float(backtest_config.get(key, 0.0)) * multiplier
         backtest = _run_configured_backtest(prices, factors, backtest_config)
         rows.append(_summarize_period(backtest, "cost_multiplier", f"{multiplier:g}"))
@@ -132,12 +144,17 @@ def build_momentum_window_sensitivity(
     momentum_windows: list[int],
 ) -> pd.DataFrame:
     """Recalculate factors with different momentum windows and rerun the strategy."""
+    # 参数敏感性回答：“20 日动量是不是刚好撞上历史最优？”
+    # 如果 10/20/40/60 都差不多，说明策略对窗口不太脆弱；
+    # 如果只有 20 好，其他都崩，就很可能是过拟合。
     rows = []
     base_factor_config = config.get("factors", {})
     backtest_config = config.get("backtest", {})
     for window in momentum_windows:
         factor_config = copy.deepcopy(base_factor_config)
         factor_config["momentum_window"] = int(window)
+        # 这里必须重新计算因子，而不是简单改 config 后复用旧 factors.csv。
+        # 因为 momentum_window 直接决定每一天的 momentum 数值。
         raw_factors = calculate_raw_factors(prices, factor_config)
         factors = preprocess_factors(
             raw_factors,
@@ -157,6 +174,12 @@ def build_momentum_window_sensitivity(
 
 def build_robustness_report(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """Build and persist robustness reports."""
+    # 稳健性模块不改变主回测结论，而是专门“挑刺”：
+    # 1. 换年份还行不行
+    # 2. 样本外还行不行
+    # 3. 成本高一点还行不行
+    # 4. 参数换一下还行不行
+    # 这些问题比单次收益更能说明策略是否可信。
     processed_dir = Path(config["data"]["processed_dir"])
     reports_dir = Path(config["output"]["reports_dir"])
     reports_dir.mkdir(parents=True, exist_ok=True)
