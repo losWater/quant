@@ -566,6 +566,46 @@ uv run python -m quant_factor.pipeline --limit 3
 uv run python -m quant_factor.pipeline
 ```
 
+## 阶段 13：滚动样本外验证
+
+代码位置：
+
+- `src/quant_factor/robustness.py`
+- `tests/test_robustness.py`
+
+已完成内容：
+
+- 新增 `rolling_validation` 配置项
+- 每个测试年使用过去 3 年作为训练期
+- 在训练期里从 `10, 20, 40, 60` 日动量窗口中选择 Sharpe 最高的参数
+- 用训练期选出的参数测试下一整年
+- 输出参数候选表和最终滚动验证表
+
+输出文件：
+
+- `results/reports/rolling_validation.csv`
+- `results/reports/rolling_validation_candidates.csv`
+
+滚动样本外结果：
+
+- 2021：选择 60 日动量，测试期收益 0.4057，跑赢 SPY 和等权股票池
+- 2022：选择 20 日动量，测试期收益 -0.1810，略跑赢 SPY，但跑输等权股票池
+- 2023：选择 60 日动量，测试期收益 0.1474，跑输 SPY 和等权股票池
+
+重要观察：
+
+- 策略不是完全无效，2021 年滚动样本外表现较好。
+- 但它不稳定，2023 年训练期选出的参数没有跑赢简单基准。
+- 当前仍不适合把机器学习作为主线，应先处理股票池、风险暴露和验证框架。
+
+验证命令：
+
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run python -m quant_factor.robustness
+```
+
 ## 下一步
 
 - 增加单只股票最大权重、最大回撤控制或波动率控制

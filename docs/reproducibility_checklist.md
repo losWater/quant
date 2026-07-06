@@ -52,6 +52,7 @@ uv run python -m quant_factor.pipeline --limit 3
 - 能生成 `results/reports/backtest_nav.csv`
 - 能生成 `results/reports/performance_summary.csv`
 - 能生成 `results/reports/sample_split_performance.csv`
+- 能生成 `results/reports/rolling_validation.csv`
 
 ## 完整流程
 
@@ -84,6 +85,12 @@ Pipeline finished: data, factors, evaluation, backtest, metrics, robustness
 - 样本外总收益：-0.0349
 - 样本外夏普：0.0011
 
+滚动样本外结果应接近：
+
+- 2021 测试年：选择 60 日动量，策略跑赢 SPY 和等权股票池
+- 2022 测试年：选择 20 日动量，策略跑赢 SPY 但跑输等权股票池
+- 2023 测试年：选择 60 日动量，策略跑输 SPY 和等权股票池
+
 ## 时间对齐检查
 
 检查 `results/reports/backtest_timing_audit.csv`：
@@ -115,6 +122,7 @@ git status --short --ignored
 
 - 手动 100 只美股大盘股仍然存在幸存者偏差
 - 样本外弱于样本内
+- 滚动样本外表现不稳定
 - 未做行业/市值中性化
 - 未做真实成交价和盘口冲击建模
 - 当前结论不能直接视为实盘策略结论

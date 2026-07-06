@@ -4,6 +4,7 @@ import pytest
 from quant_factor.robustness import (
     build_cost_sensitivity,
     build_momentum_window_sensitivity,
+    build_rolling_validation,
     build_sample_split_performance,
     build_yearly_performance,
 )
@@ -116,3 +117,78 @@ def test_build_momentum_window_sensitivity_recalculates_factors() -> None:
 
     assert result["momentum_window"].tolist() == ["1", "2"]
     assert result["observations"].gt(0).all()
+
+
+def test_build_rolling_validation_selects_window_from_train_period(monkeypatch) -> None:
+    dates = pd.date_range("2022-01-03", "2023-12-29", freq="B")
+    prices = pd.DataFrame(
+        {
+            "trade_date": list(dates),
+            "symbol": ["AAA"] * len(dates),
+            "close": [100.0] * len(dates),
+        }
+    )
+
+    def fake_build_factors(prices, factor_config, *, momentum_window):
+        data = pd.DataFrame({"momentum_window": [momentum_window]})
+        data.attrs["momentum_window"] = momentum_window
+        return data
+
+    def fake_run_backtest(prices, factors, backtest_config):
+        window = factors.attrs["momentum_window"]
+        train_return = 0.001 if window == 10 else 0.002
+        test_return = -0.001 if window == 10 else 0.003
+        returns = [train_return if date.year == 2022 else test_return for date in dates]
+        return pd.DataFrame(
+            {
+                "trade_date": dates,
+                "net_return": returns,
+                "turnover": 0.0,
+                "cost": 0.0,
+                "nav": pd.Series(returns).add(1).cumprod(),
+            }
+        )
+
+    benchmark_nav = pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "trade_date": dates,
+                    "benchmark": "SPY",
+                    "benchmark_return": [0.001] * len(dates),
+                }
+            ),
+            pd.DataFrame(
+                {
+                    "trade_date": dates,
+                    "benchmark": "equal_weight_universe",
+                    "benchmark_return": [0.002] * len(dates),
+                }
+            ),
+        ],
+        ignore_index=True,
+    )
+    benchmark_nav["benchmark_nav"] = benchmark_nav.groupby("benchmark")[
+        "benchmark_return"
+    ].transform(lambda returns: (1 + returns).cumprod())
+
+    monkeypatch.setattr(
+        "quant_factor.robustness._build_factors_for_momentum_window",
+        fake_build_factors,
+    )
+    monkeypatch.setattr("quant_factor.robustness._run_configured_backtest", fake_run_backtest)
+
+    summary, candidates = build_rolling_validation(
+        prices,
+        {"backtest": {"benchmark": "SPY"}},
+        train_years=1,
+        test_years=[2023],
+        momentum_windows=[10, 20],
+        selection_metric="total_return",
+        benchmark_nav=benchmark_nav,
+    )
+
+    assert candidates["momentum_window"].tolist() == [10, 20]
+    assert summary.loc[0, "selected_momentum_window"] == 20
+    assert summary.loc[0, "beat_spy"]
+    assert summary.loc[0, "beat_equal_weight"]

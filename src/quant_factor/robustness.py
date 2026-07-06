@@ -40,6 +40,17 @@ def _summarize_period(backtest: pd.DataFrame, label_column: str, label: str) -> 
     return summary.assign(**{label_column: label})
 
 
+def _filter_period(data: pd.DataFrame, *, start_date: str, end_date: str) -> pd.DataFrame:
+    """Slice a date-indexed report table with inclusive calendar boundaries."""
+    # 滚动验证会反复切训练期和测试期。统一在这里切片，
+    # 可以避免某些地方用 <、某些地方用 <= 导致边界口径不一致。
+    result = data.copy()
+    result["trade_date"] = pd.to_datetime(result["trade_date"], errors="coerce")
+    start = pd.Timestamp(start_date)
+    end = pd.Timestamp(end_date)
+    return result[(result["trade_date"] >= start) & (result["trade_date"] <= end)].copy()
+
+
 def build_yearly_performance(backtest: pd.DataFrame) -> pd.DataFrame:
     """Build year-by-year strategy performance."""
     # 分年度表现用于识别“是不是只靠某一年赚钱”。
@@ -172,6 +183,201 @@ def build_momentum_window_sensitivity(
     return result.loc[:, columns]
 
 
+def _build_factors_for_momentum_window(
+    prices: pd.DataFrame,
+    factor_config: dict[str, Any],
+    *,
+    momentum_window: int,
+) -> pd.DataFrame:
+    """Recalculate factor data for one momentum-window assumption."""
+    # 滚动验证和参数敏感性都需要“真正重算因子”。
+    # 不能只改 config 里的数字，因为 factors.csv 已经是旧窗口算出来的结果。
+    config = copy.deepcopy(factor_config)
+    config["momentum_window"] = int(momentum_window)
+    raw_factors = calculate_raw_factors(prices, config)
+    return preprocess_factors(
+        raw_factors,
+        winsorize_method=config.get("winsorize_method", "mad"),
+        winsorize_limit=config.get("winsorize_limit", 3.0),
+        standardize=config.get("standardize", True),
+    )
+
+
+def _summarize_backtest_period(
+    backtest: pd.DataFrame,
+    *,
+    start_date: str,
+    end_date: str,
+) -> pd.Series:
+    """Summarize one calendar period and return the first row as a Series."""
+    period = _filter_period(backtest, start_date=start_date, end_date=end_date)
+    if period.empty:
+        return pd.Series(dtype="float64")
+    return summarize_performance(_reset_period_nav(period)).iloc[0]
+
+
+def _summarize_benchmark_period(
+    benchmark_nav: pd.DataFrame,
+    *,
+    benchmark: str,
+    start_date: str,
+    end_date: str,
+) -> pd.Series:
+    """Summarize one benchmark period using benchmark returns reset to 1.0."""
+    if benchmark_nav.empty:
+        return pd.Series(dtype="float64")
+    data = benchmark_nav.copy()
+    data["trade_date"] = pd.to_datetime(data["trade_date"], errors="coerce")
+    data = data[data["benchmark"] == benchmark]
+    data = _filter_period(data, start_date=start_date, end_date=end_date)
+    if data.empty:
+        return pd.Series(dtype="float64")
+    benchmark_backtest = pd.DataFrame(
+        {
+            "trade_date": data["trade_date"],
+            "net_return": pd.to_numeric(data["benchmark_return"], errors="coerce").fillna(0),
+            "turnover": 0.0,
+            "cost": 0.0,
+        }
+    )
+    benchmark_backtest["nav"] = (1 + benchmark_backtest["net_return"]).cumprod()
+    return summarize_performance(benchmark_backtest).iloc[0]
+
+
+def _selection_value(row: dict[str, Any], column: str) -> float:
+    """Read a selection metric and treat missing values as unusable."""
+    value = row.get(column, pd.NA)
+    return float(value) if pd.notna(value) else float("-inf")
+
+
+def build_rolling_validation(
+    prices: pd.DataFrame,
+    config: dict[str, Any],
+    *,
+    train_years: int,
+    test_years: list[int],
+    momentum_windows: list[int],
+    selection_metric: str = "sharpe_ratio",
+    benchmark_nav: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Run rolling out-of-sample validation with train-period parameter selection."""
+    # 这是第二阶段最重要的检查：参数只能在训练期选择，不能看完测试期再倒推。
+    # 每个 test_year 都模拟一次“站在上一年年底做决定，然后检验下一年”的过程。
+    candidate_rows = []
+    summary_rows = []
+    factor_config = config.get("factors", {})
+    backtest_config = config.get("backtest", {})
+    benchmark_data = benchmark_nav if benchmark_nav is not None else pd.DataFrame()
+    backtest_cache: dict[int, pd.DataFrame] = {}
+
+    for test_year in test_years:
+        train_start = f"{test_year - train_years}-01-01"
+        train_end = f"{test_year - 1}-12-31"
+        test_start = f"{test_year}-01-01"
+        test_end = f"{test_year}-12-31"
+        window_results = []
+
+        for window in momentum_windows:
+            if int(window) not in backtest_cache:
+                factors = _build_factors_for_momentum_window(
+                    prices,
+                    factor_config,
+                    momentum_window=window,
+                )
+                backtest_cache[int(window)] = _run_configured_backtest(
+                    prices,
+                    factors,
+                    {**backtest_config, "factor": "momentum"},
+                )
+            backtest = backtest_cache[int(window)]
+            train_summary = _summarize_backtest_period(
+                backtest,
+                start_date=train_start,
+                end_date=train_end,
+            )
+            if train_summary.empty:
+                continue
+            test_summary = _summarize_backtest_period(
+                backtest,
+                start_date=test_start,
+                end_date=test_end,
+            )
+            row = {
+                "test_year": test_year,
+                "train_start": train_start,
+                "train_end": train_end,
+                "test_start": test_start,
+                "test_end": test_end,
+                "momentum_window": int(window),
+                "train_total_return": train_summary.get("total_return", pd.NA),
+                "train_sharpe_ratio": train_summary.get("sharpe_ratio", pd.NA),
+                "train_max_drawdown": train_summary.get("max_drawdown", pd.NA),
+                "test_total_return": test_summary.get("total_return", pd.NA),
+                "test_sharpe_ratio": test_summary.get("sharpe_ratio", pd.NA),
+                "test_max_drawdown": test_summary.get("max_drawdown", pd.NA),
+            }
+            candidate_rows.append(row)
+            window_results.append((row, backtest))
+
+        if not window_results:
+            continue
+
+        selected_row, selected_backtest = max(
+            window_results,
+            key=lambda item: _selection_value(item[0], f"train_{selection_metric}"),
+        )
+        test_summary = _summarize_backtest_period(
+            selected_backtest,
+            start_date=test_start,
+            end_date=test_end,
+        )
+        spy_summary = _summarize_benchmark_period(
+            benchmark_data,
+            benchmark=str(backtest_config.get("benchmark", "SPY")),
+            start_date=test_start,
+            end_date=test_end,
+        )
+        equal_weight_summary = _summarize_benchmark_period(
+            benchmark_data,
+            benchmark="equal_weight_universe",
+            start_date=test_start,
+            end_date=test_end,
+        )
+        strategy_return = test_summary.get("total_return", pd.NA)
+        spy_return = spy_summary.get("total_return", pd.NA)
+        equal_weight_return = equal_weight_summary.get("total_return", pd.NA)
+
+        summary_rows.append(
+            {
+                "test_year": test_year,
+                "train_start": train_start,
+                "train_end": train_end,
+                "test_start": test_start,
+                "test_end": test_end,
+                "selected_momentum_window": selected_row["momentum_window"],
+                "selection_metric": selection_metric,
+                "selected_train_metric": selected_row[f"train_{selection_metric}"],
+                "test_total_return": strategy_return,
+                "test_sharpe_ratio": test_summary.get("sharpe_ratio", pd.NA),
+                "test_max_drawdown": test_summary.get("max_drawdown", pd.NA),
+                "spy_total_return": spy_return,
+                "equal_weight_total_return": equal_weight_return,
+                "beat_spy": (
+                    bool(strategy_return > spy_return)
+                    if pd.notna(strategy_return) and pd.notna(spy_return)
+                    else pd.NA
+                ),
+                "beat_equal_weight": (
+                    bool(strategy_return > equal_weight_return)
+                    if pd.notna(strategy_return) and pd.notna(equal_weight_return)
+                    else pd.NA
+                ),
+            }
+        )
+
+    return pd.DataFrame(summary_rows), pd.DataFrame(candidate_rows)
+
+
 def build_robustness_report(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """Build and persist robustness reports."""
     # 稳健性模块不改变主回测结论，而是专门“挑刺”：
@@ -214,6 +420,22 @@ def build_robustness_report(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
         config,
         momentum_windows=robustness_config.get("momentum_windows", [10, 20, 40, 60]),
     )
+    benchmark_path = reports_dir / "benchmark_nav.csv"
+    benchmark_nav = (
+        pd.read_csv(benchmark_path, parse_dates=["trade_date"])
+        if benchmark_path.exists()
+        else pd.DataFrame()
+    )
+    rolling_config = config.get("rolling_validation", {})
+    rolling_validation, rolling_candidates = build_rolling_validation(
+        prices,
+        config,
+        train_years=int(rolling_config.get("train_years", 3)),
+        test_years=[int(year) for year in rolling_config.get("test_years", [2021, 2022, 2023])],
+        momentum_windows=rolling_config.get("momentum_windows", [10, 20, 40, 60]),
+        selection_metric=rolling_config.get("selection_metric", "sharpe_ratio"),
+        benchmark_nav=benchmark_nav,
+    )
 
     yearly.to_csv(reports_dir / "yearly_performance.csv", index=False)
     sample_split.to_csv(reports_dir / "sample_split_performance.csv", index=False)
@@ -222,11 +444,15 @@ def build_robustness_report(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
         reports_dir / "momentum_window_sensitivity.csv",
         index=False,
     )
+    rolling_validation.to_csv(reports_dir / "rolling_validation.csv", index=False)
+    rolling_candidates.to_csv(reports_dir / "rolling_validation_candidates.csv", index=False)
     return {
         "yearly": yearly,
         "sample_split": sample_split,
         "cost_sensitivity": cost_sensitivity,
         "momentum_window_sensitivity": momentum_window_sensitivity,
+        "rolling_validation": rolling_validation,
+        "rolling_validation_candidates": rolling_candidates,
     }
 
 

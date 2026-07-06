@@ -35,6 +35,7 @@
 
 - 策略在完整样本中小幅跑赢 `SPY`，但跑输 100 只股票等权买入并持有。
 - 样本外 2022-2023 基本失效，这是比 20 只股票 baseline 更严格的过拟合风险信号。
+- 滚动样本外验证显示：2021 跑赢两个基准，2022 只跑赢 SPY，2023 跑输两个基准。
 - 2022 年策略表现为负，说明策略不是每年都有效。
 - 成本提高到 3 倍后策略仍为正，但收益和夏普下降。
 - 动量窗口 40、60 天好于 20 天，说明当前参数仍有继续验证空间。
@@ -189,6 +190,8 @@ uv run python -m quant_factor.robustness
 - `results/reports/sample_split_performance.csv`
 - `results/reports/cost_sensitivity.csv`
 - `results/reports/momentum_window_sensitivity.csv`
+- `results/reports/rolling_validation.csv`
+- `results/reports/rolling_validation_candidates.csv`
 
 ## 工程验证
 
@@ -214,6 +217,7 @@ uv run ruff check .
 - 回测调仓日、选股、换手率、成本、信号延迟和旧持仓替换
 - SPY 和等权股票池基准对齐
 - 样本内外、年度表现、成本敏感性和参数敏感性
+- 滚动样本外参数选择和测试期基准对比
 
 ## 重要假设与局限
 
