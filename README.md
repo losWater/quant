@@ -242,7 +242,8 @@ uv run ruff check .
 
 辅助文档：
 
-- [项目总结与面试讲稿](docs/project_summary.md)
+- [AI 交接说明](docs/ai_handoff.md)
+- [项目总结](docs/project_summary.md)
 - [第二阶段：扩大股票池与机器学习门槛](docs/phase2_expanded_universe.md)
 - [当前问题与风险清单](docs/current_issues.md)
 - [复现检查清单](docs/reproducibility_checklist.md)
