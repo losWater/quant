@@ -12,8 +12,9 @@ from quant_factor.data_loader import build_price_dataset
 from quant_factor.evaluation import evaluate_factors
 from quant_factor.factors import build_factor_dataset
 from quant_factor.metrics import build_performance_report
+from quant_factor.robustness import build_robustness_report
 
-PIPELINE_STEPS = ["data", "factors", "evaluation", "backtest", "metrics"]
+PIPELINE_STEPS = ["data", "factors", "evaluation", "backtest", "metrics", "robustness"]
 
 
 def run_pipeline(
@@ -48,6 +49,9 @@ def run_pipeline(
 
     if "metrics" in selected_steps:
         outputs["metrics"] = build_performance_report(config)
+
+    if "robustness" in selected_steps:
+        outputs["robustness"] = build_robustness_report(config)
 
     return outputs
 

@@ -136,6 +136,19 @@ uv run python -m quant_factor.pipeline --limit 3
 
 正式跑完整股票池时去掉 `--limit`。这会耗时更久，并依赖 yfinance 网络接口稳定性。
 
+运行稳健性检查：
+
+```bash
+uv run python -m quant_factor.robustness
+```
+
+输出文件：
+
+- `results/reports/yearly_performance.csv`
+- `results/reports/sample_split_performance.csv`
+- `results/reports/cost_sensitivity.csv`
+- `results/reports/momentum_window_sensitivity.csv`
+
 后续计划：
 
 - 扩展美股股票池，降低 20 只股票样本过小带来的偶然性
