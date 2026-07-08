@@ -14,6 +14,7 @@ from quant_factor.evaluation import evaluate_factors
 from quant_factor.exposure import build_exposure_report
 from quant_factor.factors import build_factor_dataset
 from quant_factor.metrics import build_performance_report
+from quant_factor.multi_factor import build_multi_factor_report
 from quant_factor.neutralization import (
     build_neutralization_report,
     build_rolling_neutral_comparison,
@@ -31,6 +32,7 @@ PIPELINE_STEPS = [
     "robustness",
     "neutralization",
     "rolling_neutral",
+    "multi_factor",
 ]
 
 
@@ -95,6 +97,10 @@ def run_pipeline(
     if "rolling_neutral" in selected_steps:
         # 阶段 16：对行业中性版跑滚动样本外验证，检验阶段 15 的样本外优势是否只是单窗口偶然。
         outputs["rolling_neutral"] = build_rolling_neutral_comparison(config)
+
+    if "multi_factor" in selected_steps:
+        # 阶段 18：按阶段 17 诊断把方向对齐后的因子拼成综合分，行业中性下对比单因子 vs 多因子。
+        outputs["multi_factor"] = build_multi_factor_report(config)
 
     return outputs
 

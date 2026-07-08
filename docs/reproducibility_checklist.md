@@ -65,7 +65,7 @@ uv run python -m quant_factor.pipeline
 完整流程应输出：
 
 ```text
-Pipeline finished: data, factors, evaluation, diagnostics, backtest, metrics, exposure, robustness, neutralization, rolling_neutral
+Pipeline finished: data, factors, evaluation, diagnostics, backtest, metrics, exposure, robustness, neutralization, rolling_neutral, multi_factor
 ```
 
 ## 关键结果核对
@@ -113,6 +113,12 @@ Pipeline finished: data, factors, evaluation, diagnostics, backtest, metrics, ex
 
 - momentum 21 天 IC 约 -0.041（负），ma_deviation 约 -0.035，reversal 约 +0.017，volatility 约 +0.031
 - `factor_correlation.csv` 中 momentum 与 ma_deviation 相关约 0.83，volatility 与其它因子约 0
+
+多因子组合（阶段 18）结果应接近，检查 `results/reports/multi_factor_comparison.csv`：
+
+- 完整样本多因子中性版收益约 1.504、Sharpe 约 0.766、回撤约 -0.387
+- 样本外 2022-2023 多因子 Sharpe 约 0.490，跑赢单因子（0.394）、等权池（0.304）、SPY（0.180）
+- `multi_factor_yearly.csv` 中 2022：单因子 -13.9%、多因子 -10.5%
 
 ## 时间对齐检查
 

@@ -70,6 +70,15 @@ diagnostics:
     - 21
   correlation_method: spearman
 
+multi_factor:
+  # 阶段 18 多因子综合分：sign 表示方向对齐后的符号（+1 保持、-1 翻转）。
+  # 依据阶段 17 诊断：momentum/ma_deviation 21 天 IC 为负（短期反转区间），volatility 为正。
+  # 剔除 ma_deviation（与 momentum 相关 0.83 冗余）。符号是研究判断，不在同一份数据上拟合。
+  factors:
+    momentum: -1
+    reversal: 1
+    volatility: 1
+
 rolling_validation:
   train_years: 3
   test_years:

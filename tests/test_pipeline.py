@@ -44,6 +44,10 @@ def test_run_pipeline_executes_steps_in_order(monkeypatch) -> None:
         calls.append(("rolling_neutral", {}))
         return "rolling_neutral"
 
+    def fake_multi_factor(config):
+        calls.append(("multi_factor", {}))
+        return "multi_factor"
+
     monkeypatch.setattr("quant_factor.pipeline.build_price_dataset", fake_data)
     monkeypatch.setattr("quant_factor.pipeline.build_factor_dataset", fake_factors)
     monkeypatch.setattr("quant_factor.pipeline.evaluate_factors", fake_evaluation)
@@ -56,6 +60,7 @@ def test_run_pipeline_executes_steps_in_order(monkeypatch) -> None:
     monkeypatch.setattr(
         "quant_factor.pipeline.build_rolling_neutral_comparison", fake_rolling_neutral
     )
+    monkeypatch.setattr("quant_factor.pipeline.build_multi_factor_report", fake_multi_factor)
 
     outputs = run_pipeline(
         {"data": {}},

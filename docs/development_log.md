@@ -798,13 +798,59 @@ uv run ruff check .
 uv run python -m quant_factor.diagnostics
 ```
 
+## 阶段 18：多因子组合（行业中性框架下）
+
+代码位置：
+
+- `src/quant_factor/multi_factor.py`
+- `tests/test_multi_factor.py`
+
+目的：
+
+把阶段 17 的诊断处方落成一个"方向摆正的弱多因子"，在行业中性框架下对比单因子 vs 多因子，
+核心看 2022 有没有改善。
+
+已完成内容：
+
+- 剔除冗余的 ma_deviation；momentum 方向翻转（-1）、reversal/volatility 取 +1
+- 每因子当天截面重新 z-score、乘符号等权相加 = 综合分 composite_score
+- 综合分作为新列塞进已有的行业中性回测（factor="composite_score"），不改回测引擎
+- 新增 `multi_factor` pipeline 步骤和 config 段；符号写在 config、是研究判断不做拟合
+
+输出文件：
+
+- `results/reports/multi_factor_comparison.csv`
+- `results/reports/multi_factor_yearly.csv`
+- `results/figures/multi_factor_comparison.png`
+
+关键结果：
+
+- 里程碑：多因子中性版样本外（2022-2023）第一次同时跑赢 SPY 和等权股票池（0.178 vs 0.085），
+  样本外 Sharpe 0.490 > 单因子 0.394 > 等权 0.304 > SPY 0.180。
+- 2022 改善：-13.9% → -10.5%，Sharpe -0.58 → -0.28，但仍是亏损年。
+- 没有免费午餐：多因子完整样本收益更高（1.504 vs 1.274），但回撤更大（-0.387 vs -0.310），
+  完整样本 Sharpe 基本打平（0.766 vs 0.769），仍略低于等权池 0.815。
+- 2020 变差：综合分本质"买近期输家 + 高波动"，成长股狂奔环境吃亏。
+
+结论：
+
+- 符合阶段 17 "弱因子、改善有限"的诚实预期；样本外稳健性有真实小幅提升，可作新默认 baseline。
+- 但样本外只有一个窗口，"第一次跑赢等权池"需滚动样本外进一步证伪；回撤变大要配合风控看。
+
+验证命令：
+
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run python -m quant_factor.multi_factor
+```
+
 ## 下一步
 
-- 阶段 18：在行业中性框架下搭多因子综合分（剔除 ma_deviation、方向对齐、保留 volatility），
-  对比单因子 vs 多因子，重点看 2022 有没有改善
-- 增加单只股票最大权重、最大回撤控制或波动率控制
+- 对多因子中性版跑滚动样本外（复用阶段 16 框架），确认"跑赢等权池"是否稳定
+- 增加单票/波动率/回撤控制，看能否在保住收益的同时压回撤
 - 用历史成分股或更系统的股票池构建方式，继续降低幸存者偏差
-- 在中性版多因子 baseline 稳定后，再考虑最基础的机器学习模型
+- 在多因子中性 baseline 稳定后，再进入最基础的机器学习（因子作为特征，模型学组合权重）
 
 ## 问题清单
 
