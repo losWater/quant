@@ -43,7 +43,7 @@ def load_sector_map(config: dict[str, Any]) -> pd.Series:
     return sectors.dropna(subset=["symbol"]).set_index("symbol")["sector"]
 
 
-def _prepare_holdings(
+def prepare_holdings(
     active_weights: pd.DataFrame,
     prices: pd.DataFrame,
     sector_map: pd.Series,
@@ -262,7 +262,7 @@ def build_exposure_report(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
     )
 
     sector_map = load_sector_map(config)
-    holdings = _prepare_holdings(active_weights, prices, sector_map)
+    holdings = prepare_holdings(active_weights, prices, sector_map)
 
     sector_exposure = build_sector_exposure(holdings, sector_map)
     concentration = build_symbol_concentration(holdings)

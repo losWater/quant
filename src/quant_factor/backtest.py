@@ -105,6 +105,69 @@ def select_top_quantile(
     return pd.DataFrame(rows, columns=["trade_date", "symbol", "target_weight"])
 
 
+def select_sector_neutral(
+    factors: pd.DataFrame,
+    sector_map: pd.Series,
+    *,
+    factor: str,
+    portfolio_quantile: float,
+) -> pd.DataFrame:
+    """Select top names within each sector and size sectors to the equal-weight benchmark."""
+    # 阶段 15 的行业中性选股：把"选行业"和"选股票"两件事分开。
+    # 原策略全市场选 top 20%，会自然超配当下最强的行业（这几年就是科技）。
+    # 中性版强制每个行业的总权重 = 等权股票池里该行业的占比，
+    # 只在行业内部用因子挑股票。这样所有行业的主动偏离被压到 0，
+    # 剩下的收益才可能是"行业内选股 alpha"，而不是行业 beta。
+    if not 0 < portfolio_quantile <= 1:
+        raise ValueError("portfolio_quantile must be in (0, 1].")
+
+    required = {"trade_date", "symbol", factor}
+    missing = required - set(factors.columns)
+    if missing:
+        raise ValueError(f"Factor data is missing required columns: {sorted(missing)}")
+
+    # 行业中性基准权重 = 等权股票池里各行业占比 = 行业内股票数 / 股票池总数。
+    # 这个口径必须和 exposure.py 里的 universe_weight 完全一致，验证时 tilt 才会归零。
+    sector_counts = sector_map.value_counts()
+    benchmark_share = (
+        sector_counts / sector_counts.sum() if not sector_counts.empty else sector_counts
+    )
+
+    data = factors.loc[:, ["trade_date", "symbol", factor]].copy()
+    data["trade_date"] = pd.to_datetime(data["trade_date"], errors="coerce")
+    data = data.dropna(subset=["trade_date", "symbol", factor])
+    data["sector"] = data["symbol"].map(sector_map)
+    # 没有行业标签的股票无法做行业中性放置，直接排除；对全标注的股票池不影响。
+    data = data.dropna(subset=["sector"])
+
+    rows = []
+    for trade_date, date_data in data.groupby("trade_date", sort=True):
+        # 某个调仓日可能不是所有行业都有可用标的，先按当天出现的行业重新归一，
+        # 保证目标权重之和仍为 1（满仓），否则组合会莫名其妙留一部分现金。
+        available_sectors = date_data["sector"].unique()
+        available_share = benchmark_share.reindex(available_sectors).fillna(0.0)
+        total_share = float(available_share.sum())
+        if total_share <= 0:
+            continue
+        available_share = available_share / total_share
+        for sector, sector_data in date_data.groupby("sector"):
+            sector_weight = float(available_share.get(sector, 0.0))
+            if sector_weight <= 0:
+                continue
+            selected_count = max(1, ceil(len(sector_data) * portfolio_quantile))
+            selected = sector_data.sort_values(factor, ascending=False).head(selected_count)
+            per_name_weight = sector_weight / len(selected)
+            rows.extend(
+                {
+                    "trade_date": trade_date,
+                    "symbol": symbol,
+                    "target_weight": per_name_weight,
+                }
+                for symbol in selected["symbol"]
+            )
+    return pd.DataFrame(rows, columns=["trade_date", "symbol", "target_weight"])
+
+
 def calculate_turnover(current_weights: pd.Series, target_weights: pd.Series) -> float:
     """Calculate one-way turnover between current and target portfolio weights."""
     # 单边换手取买入额和卖出额的较大值，适合有现金流约束的组合估算。
@@ -199,6 +262,8 @@ def run_long_only_backtest(
     sell_commission_rate: float,
     stamp_tax_rate: float,
     slippage_rate: float,
+    sector_neutral: bool = False,
+    sector_map: pd.Series | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Run an equal-weight long-only factor strategy with one-day signal delay."""
     # 主流程：调仓日选股 -> 生成目标权重 -> 延迟成交 -> 计算收益和成本。
@@ -214,11 +279,23 @@ def run_long_only_backtest(
     # 因子文件里每天都有值，但当前策略只在调仓日使用它。
     # 这回答了“为什么每天算因子却不是每天换仓”：研究和交易频率可以分开。
     factor_data = factor_data[factor_data["trade_date"].isin(rebalance_dates)]
-    target_weights = select_top_quantile(
-        factor_data,
-        factor=factor,
-        portfolio_quantile=portfolio_quantile,
-    )
+    if sector_neutral:
+        # 行业中性版本走 select_sector_neutral，其余流程（延迟成交、成本、净值）完全一致。
+        # 只替换选股这一步，是为了让原版和中性版的对照实验只差"行业约束"这一个变量。
+        if sector_map is None:
+            raise ValueError("sector_neutral=True requires a sector_map.")
+        target_weights = select_sector_neutral(
+            factor_data,
+            sector_map,
+            factor=factor,
+            portfolio_quantile=portfolio_quantile,
+        )
+    else:
+        target_weights = select_top_quantile(
+            factor_data,
+            factor=factor,
+            portfolio_quantile=portfolio_quantile,
+        )
 
     target_matrix = (
         target_weights.pivot(index="trade_date", columns="symbol", values="target_weight")

@@ -656,12 +656,62 @@ uv run ruff check .
 uv run python -m quant_factor.exposure
 ```
 
+## 阶段 15：行业中性化对照实验
+
+代码位置：
+
+- `src/quant_factor/backtest.py`（新增 `select_sector_neutral`，`run_long_only_backtest` 加 `sector_neutral` 开关）
+- `src/quant_factor/neutralization.py`
+- `tests/test_neutralization.py`
+
+目的：
+
+阶段 14 证实收益很大程度来自 IT 行业 beta。阶段 15 做控制变量实验——把行业押注剥掉
+（每个行业强制等于等权基准权重，只在行业内部按动量选股），看策略相对等权股票池的表现是
+变干净了还是消失了。两次回测只差 `sector_neutral` 一个开关，其余假设完全相同。
+
+已完成内容：
+
+- 行业中性选股：每个行业内部各选 top 20%，行业总权重对齐等权股票池基准
+- 新增 `neutralization` pipeline 步骤，并排跑原策略与中性版
+- 四方对照表（原策略 / 行业中性 / SPY / 等权股票池），同时报告完整样本、样本内、样本外
+- 用阶段 14 的 exposure 逻辑验证中性版行业偏离是否归零
+- 原策略 vs 中性版 vs 基准的净值对比图
+
+输出文件：
+
+- `results/reports/sector_neutral_comparison.csv`
+- `results/reports/sector_neutral_exposure.csv`
+- `results/figures/sector_neutral_comparison.png`
+
+关键结果：
+
+- 中性化生效验证：中性版所有行业 `active_tilt` 精确为 0，IT 从超配 +6.5% 压到 0。
+- 完整样本：中性版 Sharpe 0.769 略高于原策略 0.717（总收益 1.274 vs 1.197）。
+- 样本内 2018-2021（科技牛市）：中性版 Sharpe 0.929 低于原策略 1.017——牛市里超配 IT 是顺风，中性化吃亏。
+- 样本外 2022-2023：原策略 Sharpe 0.001（基本失效），中性版 Sharpe 0.394 起死回生，
+  且中性版样本外收益 +11.6% 同时跑赢 SPY(+3.2%) 和等权股票池(+8.5%)。
+
+结论：
+
+- 原策略 2022-2023 的灾难性失效，很大程度是"追涨 IT → 撞上 2022 崩盘 → 又割在底部"的行业择时造成的，而不是选股本身无效。
+- 剥掉行业赌注后，剩下的"行业内动量选股"在样本外反而显出一点价值——但这只是一个 2 年窗口，还不能下定论，需要用滚动验证进一步检验。
+- 这个结果修正了阶段 14 偏悲观的初步判断：收益不是纯 beta，行业内选股可能有微弱 alpha，但行业择时是明显的负贡献。
+
+验证命令：
+
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run python -m quant_factor.neutralization
+```
+
 ## 下一步
 
-- 增加行业权重上限或行业中性化，验证去掉 IT 超配后策略还剩多少 alpha（重跑必须继续对比 SPY 和等权股票池）
+- 对行业中性版跑滚动样本外验证，确认样本外的改善不是单个窗口的偶然
 - 增加单只股票最大权重、最大回撤控制或波动率控制
 - 用历史成分股或更系统的股票池构建方式，继续降低幸存者偏差
-- 在 100 只股票 baseline 稳定后，再考虑最基础的机器学习模型
+- 在中性版 baseline 稳定后，再考虑最基础的机器学习模型
 
 ## 问题清单
 

@@ -13,6 +13,7 @@ from quant_factor.evaluation import evaluate_factors
 from quant_factor.exposure import build_exposure_report
 from quant_factor.factors import build_factor_dataset
 from quant_factor.metrics import build_performance_report
+from quant_factor.neutralization import build_neutralization_report
 from quant_factor.robustness import build_robustness_report
 
 PIPELINE_STEPS = [
@@ -23,6 +24,7 @@ PIPELINE_STEPS = [
     "metrics",
     "exposure",
     "robustness",
+    "neutralization",
 ]
 
 
@@ -70,9 +72,14 @@ def run_pipeline(
         outputs["exposure"] = build_exposure_report(config)
 
     if "robustness" in selected_steps:
-        # robustness 放在最后，因为它依赖前面已经生成的 backtest_nav 和 factors。
+        # robustness 依赖前面已经生成的 backtest_nav 和 factors。
         # 它不改变策略，只负责检查策略结论是否稳定。
         outputs["robustness"] = build_robustness_report(config)
+
+    if "neutralization" in selected_steps:
+        # 阶段 15 行业中性化：并排跑原策略与行业中性版，验证收益是行业 beta 还是选股 alpha。
+        # 放在最后，因为它复用 metrics 落盘的 benchmark_nav 做四方对照。
+        outputs["neutralization"] = build_neutralization_report(config)
 
     return outputs
 

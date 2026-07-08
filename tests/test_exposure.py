@@ -2,11 +2,11 @@ import pandas as pd
 import pytest
 
 from quant_factor.exposure import (
-    _prepare_holdings,
     _universe_sector_share,
     build_sector_attribution,
     build_sector_exposure,
     build_symbol_concentration,
+    prepare_holdings,
 )
 
 # 一个可手算的小组合：两个交易日，每天等权持有 AAA/BBB/CCC 三只股票。
@@ -50,7 +50,7 @@ def test_universe_sector_share_sums_to_one() -> None:
 
 
 def test_sector_exposure_reports_active_tilt() -> None:
-    holdings = _prepare_holdings(_sample_active_weights(), _sample_prices(), SECTOR_MAP)
+    holdings = prepare_holdings(_sample_active_weights(), _sample_prices(), SECTOR_MAP)
 
     exposure = build_sector_exposure(holdings, SECTOR_MAP)
     full = exposure[exposure["period"] == "full_sample"].set_index("sector")
@@ -63,7 +63,7 @@ def test_sector_exposure_reports_active_tilt() -> None:
 
 
 def test_symbol_concentration_effective_holdings_matches_equal_weight() -> None:
-    holdings = _prepare_holdings(_sample_active_weights(), _sample_prices(), SECTOR_MAP)
+    holdings = prepare_holdings(_sample_active_weights(), _sample_prices(), SECTOR_MAP)
 
     concentration = build_symbol_concentration(holdings)
     full = concentration[concentration["period"] == "full_sample"].iloc[0]
@@ -75,7 +75,7 @@ def test_symbol_concentration_effective_holdings_matches_equal_weight() -> None:
 
 
 def test_sector_attribution_contribution_signs() -> None:
-    holdings = _prepare_holdings(_sample_active_weights(), _sample_prices(), SECTOR_MAP)
+    holdings = prepare_holdings(_sample_active_weights(), _sample_prices(), SECTOR_MAP)
 
     attribution = build_sector_attribution(holdings)
     full = attribution[attribution["period"] == "full_sample"].set_index("sector")
@@ -90,4 +90,4 @@ def test_missing_weight_column_raises() -> None:
     bad = pd.DataFrame({"trade_date": pd.to_datetime(["2021-01-04"]), "symbol": ["AAA"]})
 
     with pytest.raises(ValueError, match="weight"):
-        _prepare_holdings(bad, _sample_prices(), SECTOR_MAP)
+        prepare_holdings(bad, _sample_prices(), SECTOR_MAP)

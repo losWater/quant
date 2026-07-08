@@ -65,7 +65,7 @@ uv run python -m quant_factor.pipeline
 完整流程应输出：
 
 ```text
-Pipeline finished: data, factors, evaluation, backtest, metrics, exposure, robustness
+Pipeline finished: data, factors, evaluation, backtest, metrics, exposure, robustness, neutralization
 ```
 
 ## 关键结果核对
@@ -96,6 +96,12 @@ Pipeline finished: data, factors, evaluation, backtest, metrics, exposure, robus
 - 完整样本信息技术平均权重约 0.275，相对等权基准 0.21 超配约 +0.065
 - `sector_performance_attribution.csv` 中 IT 毛收益贡献占比约 40%
 - `holding_symbol_concentration.csv` 中有效持仓数约 20，Top10 收益贡献占比约 0.35
+
+行业中性化（阶段 15）结果应接近，检查 `results/reports/sector_neutral_comparison.csv`：
+
+- `sector_neutral_exposure.csv` 中所有行业 `active_tilt` 应全部为 0（中性化生效）
+- 完整样本中性版 Sharpe 约 0.769，略高于原策略 0.717
+- 样本外 2022-2023：原策略 Sharpe 约 0.001，中性版约 0.394（收益约 +11.6%）
 
 ## 时间对齐检查
 
