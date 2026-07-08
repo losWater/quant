@@ -29,6 +29,8 @@ htmlcov/
 # Project data and generated outputs
 data/raw/*
 data/processed/*
+data/raw_oot/
+data/processed_oot/
 results/*
 results/figures/*
 results/reports/*

@@ -126,6 +126,12 @@ Pipeline finished: data, factors, evaluation, diagnostics, backtest, metrics, ex
 - 多因子在 3/3 窗口跑赢等权池（multi_beat_equal_weight 全为 True），也不差于单因子
 - 2022 多因子约 -10.5%，是四者中亏得最少的（单因子 -13.9%、等权 -16.9%、SPY -18.2%）
 
+真新数据终极检验（阶段 20，需联网单独运行 `uv run python -m quant_factor.out_of_time`）：
+
+- 2024-2025 锁死策略收益约 +49%，Sharpe 约 1.24；SPY 约 +47%/1.26；等权池约 +42%/1.30
+- 结论：收益略赢基准，但风险调整略输——大致等于市场、无明显 alpha
+- 注：依赖 yfinance 实时数据，具体数值随数据更新会有小幅变化
+
 ## 时间对齐检查
 
 检查 `results/reports/backtest_timing_audit.csv`：
