@@ -62,6 +62,14 @@ robustness:
     - 40
     - 60
 
+diagnostics:
+  # 阶段 17 因子诊断：在贴近月度策略的多个 horizon 上算 IC，避免只看 1 天尺度而误判因子。
+  ic_horizons:
+    - 1
+    - 5
+    - 21
+  correlation_method: spearman
+
 rolling_validation:
   train_years: 3
   test_years:

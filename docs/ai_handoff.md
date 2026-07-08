@@ -201,7 +201,19 @@ data/universe/us_large_cap_100.csv
 
 结论：行业中性可作为往后的默认 baseline。详见 `docs/stage_reports/stage16_rolling_neutral.md`。
 
-### 11. 文档
+### 11. 因子诊断（阶段 17，已完成）
+
+代码：`src/quant_factor/diagnostics.py`。多 horizon IC（1/5/21 天）+ 因子相关性矩阵。
+输出 `results/reports/factor_ic_by_horizon.csv`、`factor_correlation.csv`。
+
+核心结论（剧情反转）：`momentum` 在所有 horizon 都是负 IC（21 天 -0.041），20 天属短期反转区间，
+买赢家在截面上略微亏本；`momentum` 与 `ma_deviation` 相关 0.83（冗余）；`volatility` 与其它因子
+独立、21 天 IC 正，是最好的分散化苗子。所有 IR ≤ 0.20，弱信号。
+
+这解释了"策略跑输等权池"的最底层原因：核心选股信号在截面上是负贡献，全靠股票池上涨的 beta 撑住。
+详见 `docs/stage_reports/stage17_factor_diagnostics.md`。
+
+### 12. 文档
 
 已有文档：
 
@@ -290,19 +302,16 @@ docs/current_issues.md
 当前最新结论：行业中性是真实、稳健的风险调整改进（逐年 Sharpe 都不差于原版），可定为默认 baseline；
 但策略仍有坏年份（2022），也没做到全面碾压等权股票池。
 
-### 推荐下一步：阶段 17，多因子打分（在行业中性框架下）
+### 推荐下一步：阶段 18，多因子组合（在行业中性框架下）
 
-目标：
+阶段 17 诊断已给出明确指导：
 
-- 先检查 4 个因子（momentum / reversal / volatility / ma_deviation）之间的相关性，避免冗余。
-- 尝试最简单的多因子等权打分（z-score 相加），而不是直接上 ML。
-- 所有对比都在行业中性框架下、并保留 SPY 和等权股票池基准，跑固定 + 滚动样本外。
-- 目的：看多因子能否在中性 baseline 上进一步稳定样本外、尤其改善 2022 这样的坏年份。
-
-实现提示：
-
-- 因子已在 `factors.py` 里算好并落盘，多因子打分可以在 `select_*` 之前把多个标准化因子相加成综合分。
-- 中性选股逻辑（`select_sector_neutral`）可直接复用，只把排序依据从单因子换成综合分。
+- **剔除 `ma_deviation`**（和 momentum 相关 0.83，冗余）。
+- **`momentum` 翻转符号当反转用，或直接改用 `reversal`**（20 天动量 IC 为负，属短期反转区间）。
+- **保留 `volatility`**（与其它因子独立、21 天 IC 正，是主要分散化来源）。
+- 把方向对齐后的标准化因子等权相加成综合分，塞进 `select_sector_neutral`（只把排序依据从单因子换成综合分）。
+- 对比单因子 vs 多因子，保留 SPY 和等权池基准，跑固定 + 滚动样本外，重点看 2022 有没有改善。
+- 诚实预期：所有因子 IR ≤ 0.20，弱信号，组合改善大概率有限——这本身也是可接受的诚实结论。
 
 ### 第二优先级：其他风险控制
 

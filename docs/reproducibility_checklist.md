@@ -65,7 +65,7 @@ uv run python -m quant_factor.pipeline
 完整流程应输出：
 
 ```text
-Pipeline finished: data, factors, evaluation, backtest, metrics, exposure, robustness, neutralization, rolling_neutral
+Pipeline finished: data, factors, evaluation, diagnostics, backtest, metrics, exposure, robustness, neutralization, rolling_neutral
 ```
 
 ## 关键结果核对
@@ -108,6 +108,11 @@ Pipeline finished: data, factors, evaluation, backtest, metrics, exposure, robus
 - 2021 测试年：中性版 Sharpe 约 2.19（原策略约 1.93），均跑赢等权池
 - 2022 测试年：两者 Sharpe 都约 -0.80，均跑输等权池
 - 2023 测试年：中性版 Sharpe 约 2.01、跑赢等权池；原策略约 0.91、跑输等权池
+
+因子诊断（阶段 17）结果应接近，检查 `results/reports/factor_ic_by_horizon.csv`：
+
+- momentum 21 天 IC 约 -0.041（负），ma_deviation 约 -0.035，reversal 约 +0.017，volatility 约 +0.031
+- `factor_correlation.csv` 中 momentum 与 ma_deviation 相关约 0.83，volatility 与其它因子约 0
 
 ## 时间对齐检查
 

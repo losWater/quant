@@ -9,6 +9,7 @@ from typing import Any
 from quant_factor.backtest import run_backtest
 from quant_factor.config import load_config
 from quant_factor.data_loader import build_price_dataset
+from quant_factor.diagnostics import build_diagnostics_report
 from quant_factor.evaluation import evaluate_factors
 from quant_factor.exposure import build_exposure_report
 from quant_factor.factors import build_factor_dataset
@@ -23,6 +24,7 @@ PIPELINE_STEPS = [
     "data",
     "factors",
     "evaluation",
+    "diagnostics",
     "backtest",
     "metrics",
     "exposure",
@@ -63,6 +65,11 @@ def run_pipeline(
 
     if "evaluation" in selected_steps:
         outputs["evaluation"] = evaluate_factors(config)
+
+    if "diagnostics" in selected_steps:
+        # 阶段 17 因子诊断：多 horizon IC + 相关性，为后续多因子组合确定选哪些因子、什么符号。
+        # 只依赖 factors.csv，放在 evaluation 之后、backtest 之前，都属于策略前的因子分析。
+        outputs["diagnostics"] = build_diagnostics_report(config)
 
     if "backtest" in selected_steps:
         outputs["backtest"] = run_backtest(config)

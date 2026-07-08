@@ -752,10 +752,56 @@ uv run ruff check .
 uv run python -m quant_factor.pipeline --steps rolling_neutral
 ```
 
+## 阶段 17：因子诊断（多 horizon IC + 相关性）
+
+代码位置：
+
+- `src/quant_factor/diagnostics.py`
+- `tests/test_diagnostics.py`
+
+目的：
+
+多因子组合之前先体检。现有 IC 只在 1 天尺度算，但策略是月度调仓；4 个因子也不能无脑相加，
+得先知道各自方向、强度、是否冗余。这一阶段只产诊断报告，不改策略、不做组合。
+
+已完成内容：
+
+- 多 horizon IC：在 1 / 5 / 21 天尺度各算一遍 RankIC，复用 evaluation 的 IC 口径
+- 因子相关性：每日截面 Spearman 相关取平均，找冗余
+- 新增 `diagnostics` pipeline 步骤和 config 段
+
+输出文件：
+
+- `results/reports/factor_ic_by_horizon.csv`
+- `results/reports/factor_correlation.csv`
+
+关键结果：
+
+- IC 绝对值随 horizon 变大，1 天尺度会把因子强度看没——印证"必须匹配策略尺度"。
+- 剧情反转：`momentum` 在所有 horizon 都是负 IC（21 天 -0.041，IR -0.20）。20 天属于短期反转区间，
+  买近期赢家在截面上是略微亏本的选择；`reversal` 是其镜像、弱正。
+- `momentum` 与 `ma_deviation` 相关 0.83，高度冗余。
+- `volatility` 与其它因子几乎不相关、21 天 IC 正且随 horizon 增强，是最好的分散化苗子。
+
+结论（闭环）：
+
+- 策略核心信号（20 天动量）在截面上是负的，选股每步都在轻微减分；股票池整体上涨的 beta 让它
+  仍为正，但拖累它跑输等权池。这和阶段 14（收益来自 IT beta）、15-16（剥掉 beta 后弱选股撑不住 2022）完全自洽。
+- 直接指导阶段 18：剔除冗余的 ma_deviation；momentum 翻转符号或改用 reversal；保留独立的 volatility；
+  但所有 IR ≤ 0.20，属弱信号，组合改善大概率有限。
+
+验证命令：
+
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run python -m quant_factor.diagnostics
+```
+
 ## 下一步
 
-- 把行业中性设为默认 baseline，后续所有实验都在中性框架下对比
-- 检查 4 个因子（momentum / reversal / volatility / ma_deviation）相关性，尝试简单多因子打分
+- 阶段 18：在行业中性框架下搭多因子综合分（剔除 ma_deviation、方向对齐、保留 volatility），
+  对比单因子 vs 多因子，重点看 2022 有没有改善
 - 增加单只股票最大权重、最大回撤控制或波动率控制
 - 用历史成分股或更系统的股票池构建方式，继续降低幸存者偏差
 - 在中性版多因子 baseline 稳定后，再考虑最基础的机器学习模型
