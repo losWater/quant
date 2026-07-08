@@ -25,7 +25,7 @@ from quant_factor.backtest import run_long_only_backtest
 from quant_factor.config import load_config
 from quant_factor.exposure import build_sector_exposure, load_sector_map, prepare_holdings
 from quant_factor.metrics import summarize_performance
-from quant_factor.robustness import build_sample_split_performance
+from quant_factor.robustness import build_rolling_validation, build_sample_split_performance
 
 ORIGINAL_LABEL = "original_strategy"
 NEUTRAL_LABEL = "sector_neutral_strategy"
@@ -218,6 +218,84 @@ def build_neutralization_report(config: dict[str, Any]) -> dict[str, pd.DataFram
         "original_backtest": original_backtest,
         "neutral_backtest": neutral_backtest,
     }
+
+
+_ROLLING_KEEP_COLUMNS = [
+    "test_year",
+    "selected_momentum_window",
+    "test_total_return",
+    "test_sharpe_ratio",
+    "beat_spy",
+    "beat_equal_weight",
+]
+
+
+def build_rolling_neutral_comparison(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
+    """Stage 16: run rolling out-of-sample validation for original vs sector-neutral.
+
+    阶段 15 里中性版的样本外优势只来自 2022-2023 一个窗口。阶段 16 用滚动样本外框架
+    在多个测试年重复检验：每个测试年都在训练期选动量窗口，再用选出的参数测下一整年，
+    原策略和行业中性版各跑一遍逐年对比。只有多窗口都成立，才敢说中性化是可靠改进。
+    """
+    processed_dir = Path(config["data"]["processed_dir"])
+    reports_dir = Path(config["output"]["reports_dir"])
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    sector_map = load_sector_map(config)
+    if sector_map.empty:
+        raise ValueError(
+            "Rolling sector-neutral validation needs a 'sector' column in the universe file."
+        )
+
+    # 滚动验证内部会按每个动量窗口重算因子，所以只需要价格，不需要预先算好的 factors.csv。
+    prices = pd.read_csv(
+        processed_dir / "daily_prices.csv",
+        dtype={"symbol": "string"},
+        parse_dates=["trade_date"],
+    )
+    benchmark_path = reports_dir / "benchmark_nav.csv"
+    benchmark_nav = (
+        pd.read_csv(benchmark_path, parse_dates=["trade_date"])
+        if benchmark_path.exists()
+        else pd.DataFrame()
+    )
+
+    rolling_config = config.get("rolling_validation", {})
+    common_kwargs = {
+        "train_years": int(rolling_config.get("train_years", 3)),
+        "test_years": [int(year) for year in rolling_config.get("test_years", [2021, 2022, 2023])],
+        "momentum_windows": rolling_config.get("momentum_windows", [10, 20, 40, 60]),
+        "selection_metric": rolling_config.get("selection_metric", "sharpe_ratio"),
+        "benchmark_nav": benchmark_nav,
+    }
+    # 原策略和中性版走同一套滚动逻辑、同样的训练期选参数规则，只差 sector_neutral 一个开关。
+    original_summary, _ = build_rolling_validation(prices, config, **common_kwargs)
+    neutral_summary, _ = build_rolling_validation(
+        prices,
+        config,
+        sector_neutral=True,
+        sector_map=sector_map,
+        **common_kwargs,
+    )
+
+    frames = []
+    for label, summary in [(ORIGINAL_LABEL, original_summary), (NEUTRAL_LABEL, neutral_summary)]:
+        if summary.empty:
+            continue
+        columns = [c for c in _ROLLING_KEEP_COLUMNS if c in summary.columns]
+        frames.append(summary.loc[:, columns].assign(strategy=label))
+    comparison = (
+        pd.concat(frames, ignore_index=True)
+        if frames
+        else pd.DataFrame(columns=["strategy", *_ROLLING_KEEP_COLUMNS])
+    )
+    if not comparison.empty:
+        ordered = ["strategy", *[c for c in comparison.columns if c != "strategy"]]
+        comparison = comparison.loc[:, ordered].sort_values(["test_year", "strategy"])
+        comparison = comparison.reset_index(drop=True)
+
+    comparison.to_csv(reports_dir / "rolling_neutral_comparison.csv", index=False)
+    return {"rolling_comparison": comparison}
 
 
 def parse_args() -> argparse.Namespace:

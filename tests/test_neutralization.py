@@ -3,6 +3,7 @@ import pytest
 
 from quant_factor.backtest import run_long_only_backtest, select_sector_neutral
 from quant_factor.neutralization import summarize_all_samples
+from quant_factor.robustness import build_rolling_validation
 
 # 4 只股票、两个行业：Tech = {AAA, BBB}，Health = {CCC, DDD}。
 # 等权基准下每个行业占 2/4 = 50%，用来验证行业中性权重是否正确对齐。
@@ -80,6 +81,53 @@ def test_run_long_only_backtest_sector_neutral_requires_map() -> None:
             slippage_rate=0.0,
             sector_neutral=True,
         )
+
+
+def _synthetic_prices() -> pd.DataFrame:
+    # 覆盖训练期(2020) + 测试期(2021)的合成价格：单调趋势让动量排序稳定，
+    # AAA > BBB > CCC > DDD，方便验证滚动 + 行业中性能跑通。
+    dates = pd.bdate_range("2020-01-01", "2021-12-31")
+    drifts = {"AAA": 0.0015, "BBB": 0.0008, "CCC": -0.0002, "DDD": -0.0010}
+    rows = []
+    for symbol, drift in drifts.items():
+        close = 100.0
+        for trade_date in dates:
+            close *= 1 + drift
+            rows.append({"trade_date": trade_date, "symbol": symbol, "close": close})
+    return pd.DataFrame(rows)
+
+
+_ROLLING_CONFIG = {
+    "factors": {
+        "momentum_window": 5,
+        "reversal_window": 5,
+        "volatility_window": 5,
+        "moving_average_window": 5,
+        "winsorize_method": "mad",
+        "winsorize_limit": 3.0,
+        "standardize": True,
+    },
+    "backtest": {"factor": "momentum", "rebalance_frequency": "monthly", "portfolio_quantile": 0.5},
+}
+
+
+def test_rolling_validation_supports_sector_neutral() -> None:
+    prices = _synthetic_prices()
+    sector_map = pd.Series({"AAA": "Tech", "BBB": "Tech", "CCC": "Health", "DDD": "Health"})
+
+    summary, _ = build_rolling_validation(
+        prices,
+        _ROLLING_CONFIG,
+        train_years=1,
+        test_years=[2021],
+        momentum_windows=[5],
+        sector_neutral=True,
+        sector_map=sector_map,
+    )
+
+    # 核心：新加的 sector_neutral 开关能一路透传，滚动验证在中性模式下正常产出结果。
+    assert "test_year" in summary.columns
+    assert (summary["test_year"] == 2021).any()
 
 
 def test_summarize_all_samples_tags_series_and_samples() -> None:

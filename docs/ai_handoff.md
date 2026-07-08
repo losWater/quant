@@ -188,7 +188,20 @@ data/universe/us_large_cap_100.csv
 行业择时（追涨 IT 撞上 2022），而非选股无效。收益不是纯 beta，但行业择时是负贡献。
 详见 `docs/current_issues.md` 问题 5 的阶段 15 结果。
 
-### 10. 文档
+### 10. 行业中性版的滚动样本外验证（阶段 16，已完成）
+
+代码：`neutralization.build_rolling_neutral_comparison`，以及 `robustness.build_rolling_validation`
+新增的 `sector_neutral` / `sector_map` 开关。输出 `results/reports/rolling_neutral_comparison.csv`。
+
+做法：用现有滚动框架逐年对比原策略 vs 行业中性版（每个测试年在训练期选动量窗口）。
+
+核心结论：中性版每年的 Sharpe 都不差于原版（2021: 2.19>1.93；2022: ≈打平；2023: 2.01>0.91），
+跑赢等权池从 1/3 年提升到 2/3 年，跑赢 SPY 从 2/3 提升到 3/3。说明阶段 15 的样本外改善是
+稳定的、不是单窗口偶然。但 2022 仍是双双亏损年，策略没做到全面碾压等权池。
+
+结论：行业中性可作为往后的默认 baseline。详见 `docs/stage_reports/stage16_rolling_neutral.md`。
+
+### 11. 文档
 
 已有文档：
 
@@ -273,23 +286,23 @@ docs/current_issues.md
 
 ## 下一步建议
 
-阶段 14（风险暴露分析）和阶段 15（行业中性化对照）都已完成。当前最新结论：
-原策略样本外崩盘主要来自行业择时，行业中性版在样本外明显更稳、更强，但只验证了一个 2 年窗口。
+阶段 14（风险暴露分析）、阶段 15（行业中性化对照）、阶段 16（中性版滚动验证）都已完成。
+当前最新结论：行业中性是真实、稳健的风险调整改进（逐年 Sharpe 都不差于原版），可定为默认 baseline；
+但策略仍有坏年份（2022），也没做到全面碾压等权股票池。
 
-### 推荐下一步：阶段 16，行业中性版的滚动样本外验证
+### 推荐下一步：阶段 17，多因子打分（在行业中性框架下）
 
 目标：
 
-- 把行业中性策略接入现有的滚动样本外框架（`robustness.build_rolling_validation`），
-  确认阶段 15 里样本外的改善不是 2022-2023 这一个窗口的偶然。
-- 每个测试年仍在训练期选动量窗口，但用行业中性选股，逐年检验。
-- 如果多个滚动窗口里中性版都比原版稳，说明"行业内选股 + 去掉行业择时"是个可靠改进。
+- 先检查 4 个因子（momentum / reversal / volatility / ma_deviation）之间的相关性，避免冗余。
+- 尝试最简单的多因子等权打分（z-score 相加），而不是直接上 ML。
+- 所有对比都在行业中性框架下、并保留 SPY 和等权股票池基准，跑固定 + 滚动样本外。
+- 目的：看多因子能否在中性 baseline 上进一步稳定样本外、尤其改善 2022 这样的坏年份。
 
 实现提示：
 
-- `build_rolling_validation` 内部通过 `_run_configured_backtest` 跑回测，
-  给它传 `sector_neutral=True` 和 `sector_map` 即可复用整套逻辑。
-- 复用 `exposure.load_sector_map` 读行业标签，避免重复维护映射。
+- 因子已在 `factors.py` 里算好并落盘，多因子打分可以在 `select_*` 之前把多个标准化因子相加成综合分。
+- 中性选股逻辑（`select_sector_neutral`）可直接复用，只把排序依据从单因子换成综合分。
 
 ### 第二优先级：其他风险控制
 

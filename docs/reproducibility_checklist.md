@@ -65,7 +65,7 @@ uv run python -m quant_factor.pipeline
 完整流程应输出：
 
 ```text
-Pipeline finished: data, factors, evaluation, backtest, metrics, exposure, robustness, neutralization
+Pipeline finished: data, factors, evaluation, backtest, metrics, exposure, robustness, neutralization, rolling_neutral
 ```
 
 ## 关键结果核对
@@ -102,6 +102,12 @@ Pipeline finished: data, factors, evaluation, backtest, metrics, exposure, robus
 - `sector_neutral_exposure.csv` 中所有行业 `active_tilt` 应全部为 0（中性化生效）
 - 完整样本中性版 Sharpe 约 0.769，略高于原策略 0.717
 - 样本外 2022-2023：原策略 Sharpe 约 0.001，中性版约 0.394（收益约 +11.6%）
+
+中性版滚动验证（阶段 16）结果应接近，检查 `results/reports/rolling_neutral_comparison.csv`：
+
+- 2021 测试年：中性版 Sharpe 约 2.19（原策略约 1.93），均跑赢等权池
+- 2022 测试年：两者 Sharpe 都约 -0.80，均跑输等权池
+- 2023 测试年：中性版 Sharpe 约 2.01、跑赢等权池；原策略约 0.91、跑输等权池
 
 ## 时间对齐检查
 

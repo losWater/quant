@@ -706,12 +706,59 @@ uv run ruff check .
 uv run python -m quant_factor.neutralization
 ```
 
+## 阶段 16：行业中性版的滚动样本外验证
+
+代码位置：
+
+- `src/quant_factor/robustness.py`（`_run_configured_backtest` 和 `build_rolling_validation` 增加 `sector_neutral` / `sector_map`）
+- `src/quant_factor/neutralization.py`（`build_rolling_neutral_comparison`）
+
+目的：
+
+阶段 15 里中性版的样本外优势只来自 2022-2023 一个固定窗口，说服力有限。阶段 16 用现有滚动
+样本外框架逐年重复检验：每个测试年在训练期选动量窗口，再用选出的参数测试下一整年，
+原策略和行业中性版各跑一遍逐年对比。原则是"一个好结果先当成可疑的好运，用更多样本外证伪它"。
+
+已完成内容：
+
+- 给滚动验证框架加 `sector_neutral` 开关（复用整套逐年逻辑，不复制流程）
+- 新增 `rolling_neutral` pipeline 步骤，输出原策略 vs 中性版的逐年滚动对比表
+
+输出文件：
+
+- `results/reports/rolling_neutral_comparison.csv`
+
+关键结果（逐年滚动，每年训练期选动量窗口）：
+
+| 测试年 | 原策略 Sharpe | 中性版 Sharpe | 原策略赢等权池 | 中性版赢等权池 |
+|---:|---:|---:|---|---|
+| 2021 | 1.93 | 2.19 | 是 | 是 |
+| 2022 | -0.80 | -0.81 | 否 | 否 |
+| 2023 | 0.91 | 2.01 | 否 | 是 |
+
+结论：
+
+- 中性版每一年的 Sharpe 都不差于原版（2021 更高、2022 基本打平、2023 明显更高），
+  说明阶段 15 的样本外改善不是单个窗口的偶然，风险调整后是稳定的。
+- 战胜基准的战绩变好：跑赢等权池从 1/3 年提升到 2/3 年，跑赢 SPY 从 2/3 提升到 3/3。
+- 但中性化不是万能药：2022 仍是双双亏损年，中性版也没把它救成正的；策略还没做到全面碾压等权池。
+- 综合阶段 14-16：行业中性是真实、稳健的风险调整改进，足以定为往后的默认 baseline，但策略仍有坏年份。
+
+验证命令：
+
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run python -m quant_factor.pipeline --steps rolling_neutral
+```
+
 ## 下一步
 
-- 对行业中性版跑滚动样本外验证，确认样本外的改善不是单个窗口的偶然
+- 把行业中性设为默认 baseline，后续所有实验都在中性框架下对比
+- 检查 4 个因子（momentum / reversal / volatility / ma_deviation）相关性，尝试简单多因子打分
 - 增加单只股票最大权重、最大回撤控制或波动率控制
 - 用历史成分股或更系统的股票池构建方式，继续降低幸存者偏差
-- 在中性版 baseline 稳定后，再考虑最基础的机器学习模型
+- 在中性版多因子 baseline 稳定后，再考虑最基础的机器学习模型
 
 ## 问题清单
 

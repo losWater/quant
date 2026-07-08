@@ -134,7 +134,9 @@ def test_build_rolling_validation_selects_window_from_train_period(monkeypatch) 
         data.attrs["momentum_window"] = momentum_window
         return data
 
-    def fake_run_backtest(prices, factors, backtest_config):
+    def fake_run_backtest(
+        prices, factors, backtest_config, *, sector_neutral=False, sector_map=None
+    ):
         window = factors.attrs["momentum_window"]
         train_return = 0.001 if window == 10 else 0.002
         test_return = -0.001 if window == 10 else 0.003

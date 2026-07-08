@@ -13,7 +13,10 @@ from quant_factor.evaluation import evaluate_factors
 from quant_factor.exposure import build_exposure_report
 from quant_factor.factors import build_factor_dataset
 from quant_factor.metrics import build_performance_report
-from quant_factor.neutralization import build_neutralization_report
+from quant_factor.neutralization import (
+    build_neutralization_report,
+    build_rolling_neutral_comparison,
+)
 from quant_factor.robustness import build_robustness_report
 
 PIPELINE_STEPS = [
@@ -25,6 +28,7 @@ PIPELINE_STEPS = [
     "exposure",
     "robustness",
     "neutralization",
+    "rolling_neutral",
 ]
 
 
@@ -78,8 +82,12 @@ def run_pipeline(
 
     if "neutralization" in selected_steps:
         # 阶段 15 行业中性化：并排跑原策略与行业中性版，验证收益是行业 beta 还是选股 alpha。
-        # 放在最后，因为它复用 metrics 落盘的 benchmark_nav 做四方对照。
+        # 复用 metrics 落盘的 benchmark_nav 做四方对照。
         outputs["neutralization"] = build_neutralization_report(config)
+
+    if "rolling_neutral" in selected_steps:
+        # 阶段 16：对行业中性版跑滚动样本外验证，检验阶段 15 的样本外优势是否只是单窗口偶然。
+        outputs["rolling_neutral"] = build_rolling_neutral_comparison(config)
 
     return outputs
 

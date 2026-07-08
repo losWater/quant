@@ -98,10 +98,14 @@ def _run_configured_backtest(
     prices: pd.DataFrame,
     factors: pd.DataFrame,
     backtest_config: dict[str, Any],
+    *,
+    sector_neutral: bool = False,
+    sector_map: pd.Series | None = None,
 ) -> pd.DataFrame:
     """Run the standard long-only backtest with a supplied config."""
     # 稳健性测试会反复跑同一套策略，只改一个假设：
     # 成本倍数、动量窗口等。抽成函数可以减少重复，也避免不同测试口径不一致。
+    # sector_neutral 让同一套滚动/敏感性逻辑也能跑行业中性版，无需复制整段流程。
     backtest, _, _ = run_long_only_backtest(
         prices,
         factors,
@@ -112,6 +116,8 @@ def _run_configured_backtest(
         sell_commission_rate=backtest_config.get("sell_commission_rate", 0.0),
         stamp_tax_rate=backtest_config.get("stamp_tax_rate", 0.0),
         slippage_rate=backtest_config.get("slippage_rate", 0.0),
+        sector_neutral=sector_neutral,
+        sector_map=sector_map,
     )
     return backtest
 
@@ -259,6 +265,8 @@ def build_rolling_validation(
     momentum_windows: list[int],
     selection_metric: str = "sharpe_ratio",
     benchmark_nav: pd.DataFrame | None = None,
+    sector_neutral: bool = False,
+    sector_map: pd.Series | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Run rolling out-of-sample validation with train-period parameter selection."""
     # 这是第二阶段最重要的检查：参数只能在训练期选择，不能看完测试期再倒推。
@@ -288,6 +296,8 @@ def build_rolling_validation(
                     prices,
                     factors,
                     {**backtest_config, "factor": "momentum"},
+                    sector_neutral=sector_neutral,
+                    sector_map=sector_map,
                 )
             backtest = backtest_cache[int(window)]
             train_summary = _summarize_backtest_period(
