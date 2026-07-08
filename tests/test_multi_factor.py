@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from quant_factor.multi_factor import build_composite_score
+from quant_factor.multi_factor import build_composite_score, derive_factor_signs
 
 
 def _factors_one_date() -> pd.DataFrame:
@@ -45,6 +45,39 @@ def test_composite_equal_weights_standardized_factors() -> None:
     only_momentum = only_momentum.set_index("symbol")["composite_score"]
 
     assert combined.to_numpy() == pytest.approx(2 * only_momentum.to_numpy())
+
+
+def test_derive_factor_signs_from_train_window() -> None:
+    # 训练窗口 2020 全年。价格单调：AAA 涨最快、CCC 最慢 -> 未来收益 AAA>BBB>CCC。
+    dates = pd.bdate_range("2020-01-01", "2020-06-30")
+    price_rows = []
+    for symbol, step in [("AAA", 3.0), ("BBB", 2.0), ("CCC", 1.0)]:
+        close = 100.0
+        for date in dates:
+            price_rows.append({"trade_date": date, "symbol": symbol, "close": close})
+            close += step
+    prices = pd.DataFrame(price_rows)
+
+    factor_rows = []
+    for symbol, good, bad in [("AAA", 3.0, 1.0), ("BBB", 2.0, 2.0), ("CCC", 1.0, 3.0)]:
+        for date in dates:
+            factor_rows.append(
+                {"trade_date": date, "symbol": symbol, "good": good, "bad": bad}
+            )
+    factors = pd.DataFrame(factor_rows)
+
+    signs = derive_factor_signs(
+        factors,
+        prices,
+        ["good", "bad"],
+        start_date="2020-01-01",
+        end_date="2020-06-30",
+        horizon=5,
+    )
+
+    # good 与未来收益同向 -> IC 正 -> +1；bad 与未来收益反向 -> IC 负 -> -1。
+    assert signs["good"] == 1
+    assert signs["bad"] == -1
 
 
 def test_composite_requires_known_factor() -> None:

@@ -65,7 +65,7 @@ uv run python -m quant_factor.pipeline
 完整流程应输出：
 
 ```text
-Pipeline finished: data, factors, evaluation, diagnostics, backtest, metrics, exposure, robustness, neutralization, rolling_neutral, multi_factor
+Pipeline finished: data, factors, evaluation, diagnostics, backtest, metrics, exposure, robustness, neutralization, rolling_neutral, multi_factor, rolling_multi_factor
 ```
 
 ## 关键结果核对
@@ -119,6 +119,12 @@ Pipeline finished: data, factors, evaluation, diagnostics, backtest, metrics, ex
 - 完整样本多因子中性版收益约 1.504、Sharpe 约 0.766、回撤约 -0.387
 - 样本外 2022-2023 多因子 Sharpe 约 0.490，跑赢单因子（0.394）、等权池（0.304）、SPY（0.180）
 - `multi_factor_yearly.csv` 中 2022：单因子 -13.9%、多因子 -10.5%
+
+严格版滚动验证（阶段 19）结果应接近，检查 `results/reports/rolling_multi_factor_comparison.csv`：
+
+- 三个测试年（2021/2022/2023）窗口内推出的符号应完全一致：momentum:-1;reversal:+1;volatility:+1
+- 多因子在 3/3 窗口跑赢等权池（multi_beat_equal_weight 全为 True），也不差于单因子
+- 2022 多因子约 -10.5%，是四者中亏得最少的（单因子 -13.9%、等权 -16.9%、SPY -18.2%）
 
 ## 时间对齐检查
 

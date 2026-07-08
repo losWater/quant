@@ -845,12 +845,55 @@ uv run ruff check .
 uv run python -m quant_factor.multi_factor
 ```
 
+## 阶段 19：严格版滚动验证（窗口内重推因子符号）
+
+代码位置：
+
+- `src/quant_factor/multi_factor.py`（`derive_factor_signs`、`build_rolling_multi_factor`）
+- `tests/test_multi_factor.py`
+
+目的：
+
+阶段 18 的因子符号用了全样本（含测试年）定，是一处泄漏。阶段 19 改严格版：每个测试年只用自己的
+训练期重新推导符号，堵住这个漏，看多因子的优势是否还在。原则：凡从数据学来的决定，只能用训练期学。
+
+已完成内容：
+
+- `derive_factor_signs`：在训练窗口内算每个因子的 IC，正取 +1、负取 -1
+- `build_rolling_multi_factor`：逐个测试年、窗口内重推符号、搭综合分、只读测试年表现，单因子做对照
+- 记录每个窗口推出的符号（符号稳不稳 = 因子方向可靠性的白送诊断）
+- 新增 `rolling_multi_factor` pipeline 步骤和 config 的 sign_ic_horizon
+
+输出文件：
+
+- `results/reports/rolling_multi_factor_comparison.csv`
+
+关键结果：
+
+- 因子方向非常稳定：三个不重叠训练期各自独立推导，符号分毫不差（momentum 每次 -1、reversal +1、
+  volatility +1）。证明方向不是全样本偷看的假象。
+- 堵住符号泄漏后，多因子优势仍在：3/3 窗口跑赢等权池，3/3 不差于单因子；连 2022 也是四者中亏得最少的
+  （-10.5% vs 单因子 -13.9% vs 等权 -16.9% vs SPY -18.2%）。
+
+结论：
+
+- 比阶段 18 "一个泄漏窗口的好结果"含金量高得多——优势在多个干净窗口下都成立。
+- 但漏点②（因子的选择仍用全样本）还在；只有 3 个重叠窗口；2022 仍亏。唯一彻底干净的考场是真新数据。
+
+验证命令：
+
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run python -m quant_factor.pipeline --steps rolling_multi_factor
+```
+
 ## 下一步
 
-- 对多因子中性版跑滚动样本外（复用阶段 16 框架），确认"跑赢等权池"是否稳定
-- 增加单票/波动率/回撤控制，看能否在保住收益的同时压回撤
-- 用历史成分股或更系统的股票池构建方式，继续降低幸存者偏差
-- 在多因子中性 baseline 稳定后，再进入最基础的机器学习（因子作为特征，模型学组合权重）
+- 若进一步堵漏点②：每个训练窗口内也重新做因子筛选，而非固定 3 个
+- 增加单票/波动率/回撤控制，压多因子偏大的回撤
+- 用真正的新数据（研究期之外，如 2024+）做最终检验
+- 在此 baseline 稳定后，再进入最基础的机器学习（因子作为特征，模型学组合权重，用同样的窗口内纪律）
 
 ## 问题清单
 

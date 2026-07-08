@@ -78,6 +78,8 @@ multi_factor:
     momentum: -1
     reversal: 1
     volatility: 1
+  # 阶段 19 严格版：推导因子符号时，用未来多少天的收益算 IC。用月度尺度(≈21天)匹配月度策略。
+  sign_ic_horizon: 21
 
 rolling_validation:
   train_years: 3

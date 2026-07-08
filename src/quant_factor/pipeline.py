@@ -14,7 +14,10 @@ from quant_factor.evaluation import evaluate_factors
 from quant_factor.exposure import build_exposure_report
 from quant_factor.factors import build_factor_dataset
 from quant_factor.metrics import build_performance_report
-from quant_factor.multi_factor import build_multi_factor_report
+from quant_factor.multi_factor import (
+    build_multi_factor_report,
+    build_rolling_multi_factor,
+)
 from quant_factor.neutralization import (
     build_neutralization_report,
     build_rolling_neutral_comparison,
@@ -33,6 +36,7 @@ PIPELINE_STEPS = [
     "neutralization",
     "rolling_neutral",
     "multi_factor",
+    "rolling_multi_factor",
 ]
 
 
@@ -101,6 +105,10 @@ def run_pipeline(
     if "multi_factor" in selected_steps:
         # 阶段 18：按阶段 17 诊断把方向对齐后的因子拼成综合分，行业中性下对比单因子 vs 多因子。
         outputs["multi_factor"] = build_multi_factor_report(config)
+
+    if "rolling_multi_factor" in selected_steps:
+        # 阶段 19：严格版滚动验证——每个训练窗口内单独重推因子符号，堵住阶段 18 的符号泄漏。
+        outputs["rolling_multi_factor"] = build_rolling_multi_factor(config)
 
     return outputs
 
